@@ -119,6 +119,18 @@ mod decoder {
         sign_extend_32(bit_11 | bits_10_to_5 | bits_4_to_1, 12, sign_bit)
     }
 
+    /// J-type the upper 20 bits of a 21-bit value (sign extended) in the order
+    /// bits 21-30 => imm(1:10), bit 20 => imm(11), bits 12-19 => imm(12:19), bits 31 => imm(20)
+    /// (The sign extend bit).
+    pub const fn j_type_immediate_32(instruction: u32) -> i32 {
+        let sign_bit = extract(instruction, 0, SIGN_BIT) != 0;
+        let bit_11 = extract(instruction, 20, 0b1) << 11;
+        let bits_10_to_1 = extract(instruction, 21, 0b11_1111_1111) << 1;
+        let bits_12_to_19 = extract(instruction, 12, 0b1111_1111) << 12;
+        sign_extend_32(bits_12_to_19 | bit_11 | bits_10_to_1, 21, sign_bit)
+    }
+
+
     #[cfg(test)]
     mod test {
         use super::super::*;
@@ -304,7 +316,6 @@ mod decoder {
         #[test]
         fn test_b_type_immediate() {
             const ZERO: u32 = 0b0000_0001_0101_1111_0001_0000_0101_0110;
-            const TRUE_ZERO: u32 = 0b0;
 
             const fn pack(v: u32) -> u32 {
                 if v & 1 != 0 {
@@ -319,7 +330,7 @@ mod decoder {
                 let bits_ten_to_five = (v & 0b0011_1111_0000) >> 4;
                 let lower_four_bits = v & 0b1111;
 
-                TRUE_ZERO
+                ZERO
                     | (bit_twelve << 31)
                     | (bit_eleven << 7)
                     | (lower_four_bits << 8)
@@ -330,7 +341,54 @@ mod decoder {
             const TWO: u32 = pack(2);
             const TWO_HUNDRED_AND_FIFTY: u32 = pack(250);
             const MAX_POSITIVE_VALUE: u32 = pack(4094);
-            println!("{MAX_POSITIVE_VALUE:032b}");
+
+            assert_eq!(b_type_immediate_32(ZERO), 0);
+            assert_eq!(b_type_immediate_32(TWO), 2);
+            assert_eq!(b_type_immediate_32(TWO_HUNDRED_AND_FIFTY), 250);
+            assert_eq!(b_type_immediate_32(MAX_POSITIVE_VALUE), 4094);
+
+            const fn pack_signed(v: i32) -> u32 {
+                pack(v as u32)
+            }
+
+            const MINUS_TWO: u32 = pack_signed(-2);
+            const MINUS_TWO_HUNDRED_AND_FIFTY: u32 = pack_signed(-250);
+            const MIN_NEGATIVE_VALUE: u32 = pack_signed(-4096);
+
+            assert_eq!(b_type_immediate_32(MINUS_TWO_HUNDRED_AND_FIFTY), -250);
+            assert_eq!(b_type_immediate_32(MINUS_TWO), -2);
+            assert_eq!(b_type_immediate_32(MIN_NEGATIVE_VALUE), -4096);
+        }
+
+        #[test]
+        fn test_j_type_immediate() {
+            const ZERO: u32 = 0b0000_0000_0000_0000_0000_0110_0101_0110;
+
+            const fn pack(v: u32) -> u32 {
+
+                if v & 1 != 0 {
+                    panic!("impossible to pick, lowest bit is set");
+                }
+
+                // The input is 21 bits compressed into 20 (assuming v & 1 == 0)
+                let v = (v & 0b1_1111_1111_1111_1111_1110) >> 1;
+
+                let bit_twenty = (v & 0b1000_0000_0000_0000_0000) >> 19;
+                let bit_eleven = (v & 0b0000_0000_0100_0000_0000) >> 10;
+                let bits_ten_to_one = (v & 0b11_1111_1111);
+                let bits_19_to_12 = v & 0b0111_1111_1000_0000_0000 >> 12;
+
+                ZERO
+                    | (bit_twenty << 31)
+                    | (bit_eleven << 20)
+                    | (bits_ten_to_one << 21)
+                    | (bits_19_to_12 << 12)
+            }
+
+            // Test positive values
+            const TWO: u32 = pack(2);
+            const TWO_HUNDRED_AND_FIFTY: u32 = pack(250);
+            const MAX_POSITIVE_VALUE: u32 = pack(4094);
 
             assert_eq!(b_type_immediate_32(ZERO), 0);
             assert_eq!(b_type_immediate_32(TWO), 2);
