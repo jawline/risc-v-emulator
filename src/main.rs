@@ -1,5 +1,5 @@
 mod cpu_r32i;
-mod instruction_util;
+mod instruction;
 mod memory;
 mod registers;
 
