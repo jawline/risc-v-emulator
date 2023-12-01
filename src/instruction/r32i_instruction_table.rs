@@ -1,18 +1,17 @@
-use super::decoder;
-use super::funct3;
-use crate::cpu_r32i::CpuState;
+use super::{encoder, decoder, funct3};
+use crate::cpu_r32i::Cpu;
 use crate::instruction::opcodes;
 use crate::memory::Memory;
 
-type R32iCpuState = CpuState<u32, 32>;
+type CpuState = crate::cpu_r32i::CpuState<u32, 32>;
 
-type OpcodeHandler = fn(&mut CpuState<u32, 32>, &mut Memory, /* instruction */ u32);
+type OpcodeHandler = fn(&mut CpuState, &mut Memory, /* instruction */ u32);
 
-fn exception(c: &mut R32iCpuState, memory: &mut Memory, _: u32) {
+fn exception(c: &mut CpuState, memory: &mut Memory, _: u32) {
     unimplemented!()
 }
 
-fn op_imm(c: &mut R32iCpuState, memory: &mut Memory, instruction: u32) {
+fn op_imm(c: &mut CpuState, memory: &mut Memory, instruction: u32) {
     match decoder::funct3(instruction) {
         funct3::ADDI => {
             let source_register = decoder::rs1(instruction);
@@ -26,6 +25,8 @@ fn op_imm(c: &mut R32iCpuState, memory: &mut Memory, instruction: u32) {
             c.registers.pc += 4;
 
             println!("WARNING: TODO check overflow");
+        
+            panic!("exceptions are not yet correctly handled");
         }
         _ => panic!("funct3 parameter should not be > 0b111"),
     }
@@ -37,9 +38,33 @@ pub struct InstructionTable {
 }
 
 impl InstructionTable {
-    pub const fn r32i() -> Self {
-        let mut handlers = [exception; 32];
+    pub const fn new() -> Self {
+        let mut handlers: [OpcodeHandler; 32] = [exception; 32];
         handlers[opcodes::OP_IMM] = op_imm;
         Self { handlers }
+    }
+
+    pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
+        (self.handlers[decoder::opcode(instruction)])(cpu_state, memory, instruction)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn create_table() {
+        let table = InstructionTable::new();
+    }
+
+    fn test_args() -> (CpuState, Memory, InstructionTable) {
+        (CpuState::new(), Memory::new(4096), InstructionTable::new())
+    }
+
+    #[test]
+    fn execute_no_op() {
+        let (mut cpu, mut memory, table) = test_args();
+        table.step(&mut cpu, &mut memory, encoder::no_op());
     }
 }

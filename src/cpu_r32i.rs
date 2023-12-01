@@ -7,14 +7,24 @@ pub struct CpuState<T: Default + Copy, const N: usize> {
     pub exception: bool,
 }
 
-pub struct Cpu(CpuState<u32, 32>);
+impl<T: Default + Copy, const N: usize> CpuState<T, N> {
+    pub fn new() -> Self {
+        Self {
+            registers: Registers::<T, N>::new(),
+            exception: false,
+        }
+    }
+}
+
+pub struct Cpu {
+    pub state: CpuState<u32, 32>,
+}
 
 impl Cpu {
     pub fn new() -> Self {
-        Self(CpuState {
-            registers: Registers::<u32, 32>::new(),
-            exception: false,
-        })
+        Self {
+            state: CpuState::new(),
+        }
     }
 
     pub fn step(memory: &mut Memory) {
