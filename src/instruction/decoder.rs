@@ -4,23 +4,23 @@ use super::util::{
 };
 
 /// Extract the opcode (lowest 7 bits of the 32 bits)
-pub const fn opcode(instruction: u32) -> u8 {
-    extract(instruction, 0, C_7_BITS) as u8
+pub const fn opcode(instruction: u32) -> usize {
+    extract(instruction, 0, C_7_BITS) as usize
 }
 
 /// Extract the 'rd' part of the instruction (5 bits from bits 7 to 11 inclusive)
-pub const fn rd(instruction: u32) -> u8 {
-    extract(instruction, 7, C_5_BITS) as u8
+pub const fn rd(instruction: u32) -> usize {
+    extract(instruction, 7, C_5_BITS) as usize
 }
 
 /// Extract the 'rs1' (register source 1) part of the instruction (5 bits from 7 to 19 inclusive)
-pub const fn rs1(instruction: u32) -> u8 {
-    extract(instruction, 15, C_5_BITS) as u8
+pub const fn rs1(instruction: u32) -> usize {
+    extract(instruction, 15, C_5_BITS) as usize
 }
 
 /// Extract the 'rs2' (register source 2) part of the instruction (5 bits from 20 to 24 inclusive)
-pub const fn rs2(instruction: u32) -> u8 {
-    extract(instruction, 20, C_5_BITS) as u8
+pub const fn rs2(instruction: u32) -> usize {
+    extract(instruction, 20, C_5_BITS) as usize
 }
 
 /// Extract the 'funct3' (function 3 bits) part of the instruction (3 bits from 12 to 14
@@ -348,7 +348,7 @@ mod test {
 
             let bit_twenty = (v & 0b1000_0000_0000_0000_0000) >> 19;
             let bit_eleven = (v & 0b0000_0000_0100_0000_0000) >> 10;
-            let bits_ten_to_one = (v & 0b11_1111_1111);
+            let bits_ten_to_one = v & 0b11_1111_1111;
             let bits_19_to_12 = (v & 0b0111_1111_1000_0000_0000) >> 11;
 
             ZERO | (bit_twenty << 31)

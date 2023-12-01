@@ -1,8 +1,8 @@
 // Construct an opcode from a 3 bit column and a 2 bit row
-pub const fn construct_opcode(col: u8, row: u8) -> u8 {
+pub const fn construct_opcode(col: u8, row: u8) -> usize {
     let col_shifted = (col & 0b111) << 2;
     let row_shifted = (row & 0b11) << 5;
-    col_shifted | row_shifted | 0b11
+    (col_shifted | row_shifted | 0b11) as usize
 }
 
 pub const fn extract(value: u32, shift: usize, mask: u32) -> u32 {
