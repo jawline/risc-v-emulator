@@ -127,9 +127,8 @@ mod decoder {
         let bit_11 = extract(instruction, 20, 0b1) << 11;
         let bits_10_to_1 = extract(instruction, 21, 0b11_1111_1111) << 1;
         let bits_12_to_19 = extract(instruction, 12, 0b1111_1111) << 12;
-        sign_extend_32(bits_12_to_19 | bit_11 | bits_10_to_1, 21, sign_bit)
+        sign_extend_32(bits_12_to_19 | bit_11 | bits_10_to_1, 20, sign_bit)
     }
-
 
     #[cfg(test)]
     mod test {
@@ -330,8 +329,7 @@ mod decoder {
                 let bits_ten_to_five = (v & 0b0011_1111_0000) >> 4;
                 let lower_four_bits = v & 0b1111;
 
-                ZERO
-                    | (bit_twelve << 31)
+                ZERO | (bit_twelve << 31)
                     | (bit_eleven << 7)
                     | (lower_four_bits << 8)
                     | (bits_ten_to_five << 25)
@@ -351,6 +349,7 @@ mod decoder {
                 pack(v as u32)
             }
 
+            // Test negative values
             const MINUS_TWO: u32 = pack_signed(-2);
             const MINUS_TWO_HUNDRED_AND_FIFTY: u32 = pack_signed(-250);
             const MIN_NEGATIVE_VALUE: u32 = pack_signed(-4096);
@@ -365,7 +364,6 @@ mod decoder {
             const ZERO: u32 = 0b0000_0000_0000_0000_0000_0110_0101_0110;
 
             const fn pack(v: u32) -> u32 {
-
                 if v & 1 != 0 {
                     panic!("impossible to pick, lowest bit is set");
                 }
@@ -376,7 +374,7 @@ mod decoder {
                 let bit_twenty = (v & 0b1000_0000_0000_0000_0000) >> 19;
                 let bit_eleven = (v & 0b0000_0000_0100_0000_0000) >> 10;
                 let bits_ten_to_one = (v & 0b11_1111_1111);
-                let bits_19_to_12 = v & 0b0111_1111_1000_0000_0000 >> 12;
+                let bits_19_to_12 = (v & 0b0111_1111_1000_0000_0000) >> 11;
 
                 ZERO
                     | (bit_twenty << 31)
@@ -388,24 +386,25 @@ mod decoder {
             // Test positive values
             const TWO: u32 = pack(2);
             const TWO_HUNDRED_AND_FIFTY: u32 = pack(250);
-            const MAX_POSITIVE_VALUE: u32 = pack(4094);
+            const MAX_POSITIVE_VALUE: u32 = pack(1048574);
 
-            assert_eq!(b_type_immediate_32(ZERO), 0);
-            assert_eq!(b_type_immediate_32(TWO), 2);
-            assert_eq!(b_type_immediate_32(TWO_HUNDRED_AND_FIFTY), 250);
-            assert_eq!(b_type_immediate_32(MAX_POSITIVE_VALUE), 4094);
+            assert_eq!(j_type_immediate_32(ZERO), 0);
+            assert_eq!(j_type_immediate_32(TWO), 2);
+            assert_eq!(j_type_immediate_32(TWO_HUNDRED_AND_FIFTY), 250);
+            assert_eq!(j_type_immediate_32(MAX_POSITIVE_VALUE), 1048574);
 
             const fn pack_signed(v: i32) -> u32 {
                 pack(v as u32)
             }
 
+            // Test negative values
             const MINUS_TWO: u32 = pack_signed(-2);
             const MINUS_TWO_HUNDRED_AND_FIFTY: u32 = pack_signed(-250);
-            const MIN_NEGATIVE_VALUE: u32 = pack_signed(-4096);
+            const MIN_NEGATIVE_VALUE: u32 = pack_signed(-1048576);
 
-            assert_eq!(b_type_immediate_32(MINUS_TWO_HUNDRED_AND_FIFTY), -250);
-            assert_eq!(b_type_immediate_32(MINUS_TWO), -2);
-            assert_eq!(b_type_immediate_32(MIN_NEGATIVE_VALUE), -4096);
+            assert_eq!(j_type_immediate_32(MIN_NEGATIVE_VALUE), -1048576);
+            assert_eq!(j_type_immediate_32(MINUS_TWO_HUNDRED_AND_FIFTY), -250);
+            assert_eq!(j_type_immediate_32(MINUS_TWO), -2);
         }
     }
 }
