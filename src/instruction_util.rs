@@ -217,6 +217,8 @@ mod decoder {
             const ZERO: u32 = 0b0000_0000_0000_1111_0001_0101_0101_0110;
 
             const fn pack(v: u32) -> u32 {
+                // We OR this with zero to set some unrelated bits, testing
+                // that we're not accidentally just coming to the same value.
                 ZERO | (v << 20)
             }
 
