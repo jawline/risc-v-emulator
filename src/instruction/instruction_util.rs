@@ -16,48 +16,51 @@ pub const fn extract(value: u32, shift: usize, mask: u32) -> u32 {
 }
 
 const SIGN_BIT: u32 = 0b1000_0000_0000_0000_0000_0000_0000_0000;
-const LOWEST_7_BITS: u32 = 0b111_1111;
-const LOWEST_6_BITS: u32 = 0b11_1111;
-const LOWEST_5_BITS: u32 = 0b1_1111;
-const LOWEST_4_BITS: u32 = 0b1111;
-const LOWEST_3_BITS: u32 = 0b111;
+const C_11_BITS: u32 = 0b111_1111_1111;
+const C_10_BITS: u32 = 0b11_1111_1111;
+const C_8_BITS: u32 = 0b1111_1111;
+const C_7_BITS: u32 = 0b111_1111;
+const C_6_BITS: u32 = 0b11_1111;
+const C_5_BITS: u32 = 0b1_1111;
+const C_4_BITS: u32 = 0b1111;
+const C_3_BITS: u32 = 0b111;
 
 mod decoder {
     use super::{
-        extract, LOWEST_3_BITS, LOWEST_4_BITS, LOWEST_5_BITS, LOWEST_6_BITS, LOWEST_7_BITS,
+        extract, C_10_BITS, C_11_BITS, C_3_BITS, C_4_BITS, C_5_BITS, C_6_BITS, C_7_BITS, C_8_BITS,
         SIGN_BIT,
     };
 
     /// Extract the opcode (lowest 7 bits of the 32 bits)
     pub const fn opcode(instruction: u32) -> u8 {
-        extract(instruction, 0, LOWEST_7_BITS) as u8
+        extract(instruction, 0, C_7_BITS) as u8
     }
 
     /// Extract the 'rd' part of the instruction (5 bits from bits 7 to 11 inclusive)
     pub const fn rd(instruction: u32) -> u8 {
-        extract(instruction, 7, LOWEST_5_BITS) as u8
+        extract(instruction, 7, C_5_BITS) as u8
     }
 
     /// Extract the 'rs1' (register source 1) part of the instruction (5 bits from 7 to 19 inclusive)
     pub const fn rs1(instruction: u32) -> u8 {
-        extract(instruction, 15, LOWEST_5_BITS) as u8
+        extract(instruction, 15, C_5_BITS) as u8
     }
 
     /// Extract the 'rs2' (register source 2) part of the instruction (5 bits from 20 to 24 inclusive)
     pub const fn rs2(instruction: u32) -> u8 {
-        extract(instruction, 20, LOWEST_5_BITS) as u8
+        extract(instruction, 20, C_5_BITS) as u8
     }
 
     /// Extract the 'funct3' (function 3 bits) part of the instruction (3 bits from 12 to 14
     /// inclusive)
     pub const fn funct3(instruction: u32) -> u8 {
-        extract(instruction, 12, LOWEST_3_BITS) as u8
+        extract(instruction, 12, C_3_BITS) as u8
     }
 
     /// Extract the 'funct7' (function 7 bits) part of the instruction (7 bits from 25 to 31
     /// inclusive)
     pub const fn funct7(instruction: u32) -> u8 {
-        extract(instruction, 25, LOWEST_7_BITS) as u8
+        extract(instruction, 25, C_7_BITS) as u8
     }
 
     /// Extract a sign extended u type immediate (u-type immediates are
@@ -67,7 +70,7 @@ mod decoder {
     /// All immediates are sign extended but in this case the sign bit is
     /// naturally in the correct position so we just cast it to an i32.
     pub const fn u_type_immediate(instruction: u32) -> i32 {
-        extract(instruction, 0, 0b1111_1111_1111_1111_1110_0000_0000_0000) as i32
+        (instruction & 0b1111_1111_1111_1111_1110_0000_0000_0000) as i32
     }
 
     /// Sign extend an input to 32 bits given a sign bit and the unsigned portion.
@@ -91,7 +94,7 @@ mod decoder {
         // The sign bit is already at bit 31 so we just extract it with a mask. We need to shift
         // the other 12 bits.
         let sign_bit = extract(instruction, 0, SIGN_BIT) != 0;
-        let raw_value = extract(instruction, 20, 0b0111_1111_1111);
+        let raw_value = extract(instruction, 20, C_11_BITS);
 
         // Sign extend the result (fill the extended area with 1s if negative and 0s if positive).
         sign_extend_32(raw_value, 11, sign_bit)
@@ -103,8 +106,8 @@ mod decoder {
         // The sign bit is already at bit 31 so we just extract it with a mask. We need to shift
         // the other 12 bits.
         let sign_bit = extract(instruction, 0, SIGN_BIT) != 0;
-        let upper_6_bits = extract(instruction, 25, LOWEST_6_BITS) << 5;
-        let lower_5_bits = extract(instruction, 7, LOWEST_5_BITS);
+        let upper_6_bits = extract(instruction, 25, C_6_BITS) << 5;
+        let lower_5_bits = extract(instruction, 7, C_5_BITS);
         sign_extend_32(upper_6_bits | lower_5_bits, 11, sign_bit)
     }
 
@@ -112,10 +115,10 @@ mod decoder {
     /// bits 25-30 for imm(5:10), bit 7 for imm(11) and bit 31 for imm(12). imm(0) is always 0
     /// (inclusive).
     pub const fn b_type_immediate_32(instruction: u32) -> i32 {
-        let sign_bit = extract(instruction, 0, SIGN_BIT) != 0;
+        let sign_bit = instruction & SIGN_BIT != 0;
         let bit_11 = extract(instruction, 7, 0b1) << 11;
-        let bits_10_to_5 = extract(instruction, 25, LOWEST_6_BITS) << 5;
-        let bits_4_to_1 = extract(instruction, 8, LOWEST_4_BITS) << 1;
+        let bits_10_to_5 = extract(instruction, 25, C_6_BITS) << 5;
+        let bits_4_to_1 = extract(instruction, 8, C_4_BITS) << 1;
         sign_extend_32(bit_11 | bits_10_to_5 | bits_4_to_1, 12, sign_bit)
     }
 
@@ -123,10 +126,10 @@ mod decoder {
     /// bits 21-30 => imm(1:10), bit 20 => imm(11), bits 12-19 => imm(12:19), bits 31 => imm(20)
     /// (The sign extend bit).
     pub const fn j_type_immediate_32(instruction: u32) -> i32 {
-        let sign_bit = extract(instruction, 0, SIGN_BIT) != 0;
+        let sign_bit = instruction & SIGN_BIT != 0;
         let bit_11 = extract(instruction, 20, 0b1) << 11;
-        let bits_10_to_1 = extract(instruction, 21, 0b11_1111_1111) << 1;
-        let bits_12_to_19 = extract(instruction, 12, 0b1111_1111) << 12;
+        let bits_10_to_1 = extract(instruction, 21, C_10_BITS) << 1;
+        let bits_12_to_19 = extract(instruction, 12, C_8_BITS) << 12;
         sign_extend_32(bits_12_to_19 | bit_11 | bits_10_to_1, 20, sign_bit)
     }
 
@@ -376,8 +379,7 @@ mod decoder {
                 let bits_ten_to_one = (v & 0b11_1111_1111);
                 let bits_19_to_12 = (v & 0b0111_1111_1000_0000_0000) >> 11;
 
-                ZERO
-                    | (bit_twenty << 31)
+                ZERO | (bit_twenty << 31)
                     | (bit_eleven << 20)
                     | (bits_ten_to_one << 21)
                     | (bits_19_to_12 << 12)
