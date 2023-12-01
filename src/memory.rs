@@ -6,15 +6,15 @@ pub enum MemoryError {
 pub struct Memory(Vec<u8>);
 
 impl Memory {
-    fn new(sz: usize) -> Self {
+    pub fn new(sz: usize) -> Self {
         Self(vec![0; sz])
     }
 
-    fn get8(&self, addr: usize) -> Result<u8, MemoryError> {
+    pub fn get8(&self, addr: usize) -> Result<u8, MemoryError> {
         self.0.get(addr).copied().ok_or(MemoryError::OutOfBounds)
     }
 
-    fn set8(&mut self, addr: usize, val: u8) -> Result<(), MemoryError> {
+    pub fn set8(&mut self, addr: usize, val: u8) -> Result<(), MemoryError> {
         match self.0.get_mut(addr) {
             Some(elem) => {
                 *elem = val;
@@ -24,12 +24,12 @@ impl Memory {
         }
     }
 
-    fn get16(&self, addr: usize) -> Result<u16, MemoryError> {
+    pub fn get16(&self, addr: usize) -> Result<u16, MemoryError> {
         let bytes = [self.get8(addr)?, self.get8(addr + 1)?];
         Ok(u16::from_le_bytes(bytes))
     }
 
-    fn set16(&mut self, addr: usize, val: u16) -> Result<(), MemoryError> {
+    pub fn set16(&mut self, addr: usize, val: u16) -> Result<(), MemoryError> {
         let bytes = val.to_le_bytes();
         self.set8(addr, bytes[0])?;
         self.set8(addr + 1, bytes[1])?;
