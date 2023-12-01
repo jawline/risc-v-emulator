@@ -54,6 +54,16 @@ mod decoder {
         extract(instruction, 25, LOWEST_7_BITS) as u8
     }
 
+    /// Extract a sign extended u type immediate (u-type immediates are
+    /// packed such that instruction[31:12] = immediate[31:12] with the
+    /// lowest bits being zero).
+    /// 
+    /// All immediates are sign extended but in this case the sign bit is
+    /// naturally in the correct position so we just cast it to an i32.
+    pub const fn u_type_immediate(instruction: u32) -> i32 {
+        extract(instruction, 0, 0b1111_1111_1111_1111_1110_0000_0000_0000) as i32
+    }
+
     #[cfg(test)]
     mod test {
         use super::super::*;
@@ -117,6 +127,22 @@ mod decoder {
             assert_eq!(rs2(0b1111_0001_0101_0000_1111_0000_1111_0000), 0b1010_1);
             assert_eq!(rs2(0b1111_0001_1111_0000_1111_0000_1111_0000), 0b1111_1);
             assert_eq!(rs2(0b1111_0001_1011_0000_1111_0000_1111_0000), 0b1101_1);
+        }
+
+
+        #[test]
+        fn test_u_type_immediate() {
+
+            // Test negative
+            assert_eq!(u_type_immediate(0b0000_0000_0000_0000_0001_0101_0101_0110), 0);
+
+            // Test highest positive value (2^31 - 1) - (0b1_1111_1111_1111 the part of the range
+            // we can't hold)
+            assert_eq!(u_type_immediate(0b0111_1111_1111_1111_1110_0101_0101_0110), 2147483647 - 8191);
+
+            // Test the sign bit. Since the lower bits are always zero the least negative number
+            // we can represent is -8912 (-2^31 from bit 31 being set + bits 30-12 set).
+            assert_eq!(u_type_immediate(0b1111_1111_1111_1111_1110_0010_0111_0000), - (0b1_1111_1111_1111 as i32) - 1);
         }
     }
 }
