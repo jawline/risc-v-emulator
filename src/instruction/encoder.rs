@@ -1,6 +1,8 @@
 use super::opcodes::OP_IMM;
 use super::funct3::ADDI;
 
+/// Construct an add-immediate instruction that will add a signed 12-bit immediate
+/// to the register in rs1 and then place it in rd
 pub const fn addi(
     destination_register: usize,
     source_register: usize,
@@ -24,6 +26,9 @@ pub const fn addi(
         | (imm as u32) << 20
 }
 
+/// Construct a canonical no-op.
+/// 
+/// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
 pub const fn no_op() -> u32 {
     addi(0, 0, 0)
 }
