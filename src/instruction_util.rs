@@ -17,9 +17,10 @@ pub const fn extract(value: u32, shift: usize, mask: u32) -> u32 {
 
 const LOWEST_7_BITS: u32 = 0b111_1111;
 const LOWEST_5_BITS: u32 = 0b1_1111;
+const LOWEST_3_BITS: u32 = 0b111;
 
 mod decoder {
-    use super::{extract, LOWEST_5_BITS, LOWEST_7_BITS};
+    use super::{extract, LOWEST_3_BITS, LOWEST_5_BITS, LOWEST_7_BITS};
 
     /// Extract the opcode (lowest 7 bits of the 32 bits)
     pub const fn opcode(instruction: u32) -> u8 {
@@ -39,6 +40,18 @@ mod decoder {
     /// Extract the 'rs2' (register source 2) part of the instruction (5 bits from 20 to 24 inclusive)
     pub const fn rs2(instruction: u32) -> u8 {
         extract(instruction, 20, LOWEST_5_BITS) as u8
+    }
+
+    /// Extract the 'funct3' (function 3 bits) part of the instruction (3 bits from 12 to 14
+    /// inclusive)
+    pub const fn funct3(instruction: u32) -> u8 {
+        extract(instruction, 12, LOWEST_3_BITS) as u8
+    }
+
+    /// Extract the 'funct7' (function 7 bits) part of the instruction (7 bits from 25 to 31
+    /// inclusive)
+    pub const fn funct7(instruction: u32) -> u8 {
+        extract(instruction, 25, LOWEST_7_BITS) as u8
     }
 
     #[cfg(test)]
@@ -74,6 +87,21 @@ mod decoder {
             assert_eq!(rd(0b1111_0000_1111_0000_1111_0000_0111_0000), 0b0000_0);
             assert_eq!(rd(0b1111_0000_1111_0000_1111_1010_0111_0000), 0b1010_0);
             assert_eq!(rd(0b1111_0000_1111_0000_1111_1010_1111_0000), 0b1010_1);
+        }
+
+        #[test]
+        fn test_funct3() {
+            assert_eq!(funct3(0b1111_0000_1110_0000_1000_0000_1111_0000), 0b000);
+            assert_eq!(funct3(0b1111_0000_1110_0000_1010_0000_1111_0000), 0b010);
+            assert_eq!(funct3(0b1111_0000_1110_0000_1111_0000_1111_0000), 0b111);
+        }
+
+        #[test]
+        fn test_funct7() {
+            assert_eq!(funct7(0b1111_0000_1111_0000_1111_0000_1111_0000), 0b1111_000);
+            assert_eq!(funct7(0b1010_1010_1111_0000_1111_0000_1111_0000), 0b1010_101);
+            assert_eq!(funct7(0b0000_0000_1111_0000_1111_0000_1111_0000), 0b0000_000);
+            assert_eq!(funct7(0b1111_1110_1111_0000_1111_0000_1111_0000), 0b1111_111);
         }
 
         #[test]
