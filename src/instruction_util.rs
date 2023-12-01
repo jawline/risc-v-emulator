@@ -15,12 +15,14 @@ pub const fn extract(value: u32, shift: usize, mask: u32) -> u32 {
     (value >> shift) & mask
 }
 
+const SIGN_BIT: u32 = 0b1000_0000_0000_0000_0000_0000_0000_0000;
 const LOWEST_7_BITS: u32 = 0b111_1111;
+const LOWEST_6_BITS: u32 = 0b11_1111;
 const LOWEST_5_BITS: u32 = 0b1_1111;
 const LOWEST_3_BITS: u32 = 0b111;
 
 mod decoder {
-    use super::{extract, LOWEST_3_BITS, LOWEST_5_BITS, LOWEST_7_BITS};
+    use super::{extract, LOWEST_3_BITS, LOWEST_5_BITS, LOWEST_6_BITS, LOWEST_7_BITS, SIGN_BIT};
 
     /// Extract the opcode (lowest 7 bits of the 32 bits)
     pub const fn opcode(instruction: u32) -> u8 {
@@ -79,16 +81,27 @@ mod decoder {
         ((raw_value & bit_mask) | extension) as i32
     }
 
-    /// The i-type immediates are sign extended 12 bit immediates packed into the last 12 bits of
+    /// I-type immediates are sign extended 12 bit immediates packed into the last 12 bits of
     /// the 32-bit instruction.
     pub const fn i_type_immediate_32(instruction: u32) -> i32 {
         // The sign bit is already at bit 31 so we just extract it with a mask. We need to shift
         // the other 12 bits.
-        let sign_bit = extract(instruction, 0, 0b1000_0000_0000_0000_0000_0000_0000_0000) != 0;
+        let sign_bit = extract(instruction, 0, SIGN_BIT) != 0;
         let raw_value = extract(instruction, 20, 0b0111_1111_1111);
 
         // Sign extend the result (fill the extended area with 1s if negative and 0s if positive).
         sign_extend_32(raw_value, 11, sign_bit)
+    }
+
+    /// S-type immediates are sign extended 12 bit immediates packed into bits (7-11) for imm(0:4)
+    /// and bits 25-31 for bits 5-11 (inclusive).
+    pub const fn s_type_immediate_32(instruction: u32) -> i32 {
+        // The sign bit is already at bit 31 so we just extract it with a mask. We need to shift
+        // the other 12 bits.
+        let sign_bit = extract(instruction, 0, SIGN_BIT) != 0;
+        let upper_6_bits = extract(instruction, 25, LOWEST_6_BITS) << 5;
+        let lower_5_bits = extract(instruction, 7, LOWEST_5_BITS);
+        sign_extend_32(upper_6_bits | lower_5_bits, 11, sign_bit)
     }
 
     #[cfg(test)]
@@ -201,7 +214,6 @@ mod decoder {
 
         #[test]
         fn test_i_type_immediate() {
-
             const ZERO: u32 = 0b0000_0000_0000_1111_0001_0101_0101_0110;
 
             const fn pack(v: u32) -> u32 {
@@ -223,17 +235,53 @@ mod decoder {
             // Sign-aware truncation is the same as truncation for negative
             // values within the smaller range, so this should work for values
             // < 12 bits.
-            const fn pack_negative(v: i32) -> u32 {
+            const fn pack_signed(v: i32) -> u32 {
                 pack(v as u32)
             }
 
-            const MINUS_ONE: u32 = pack_negative(-1);
-            const MINUS_TWO_HUNDRED_AND_FIFTY: u32 = pack_negative(-250);
-            const MIN_NEGATIVE_VALUE: u32 = pack_negative(-2048);
+            const MINUS_ONE: u32 = pack_signed(-1);
+            const MINUS_TWO_HUNDRED_AND_FIFTY: u32 = pack_signed(-250);
+            const MIN_NEGATIVE_VALUE: u32 = pack_signed(-2048);
 
             assert_eq!(i_type_immediate_32(MINUS_TWO_HUNDRED_AND_FIFTY), -250);
             assert_eq!(i_type_immediate_32(MINUS_ONE), -1);
             assert_eq!(i_type_immediate_32(MIN_NEGATIVE_VALUE), -2048);
+        }
+
+        #[test]
+        fn test_s_type_immediate() {
+            const ZERO: u32 = 0b0000_0001_0101_1111_0001_0000_0101_0110;
+            const fn pack(v: u32) -> u32 {
+                let v = v & 0b1111_1111_1111;
+                let higher_7_bits = v & 0b1111_1110_0000;
+                let lower_5_bits = v & 0b1_1111;
+
+                // We OR this with zero to set some unrelated bits, testing
+                // that we're not accidentally just coming to the same value.
+                ZERO | ((higher_7_bits >> 5) << 25) | (lower_5_bits << 7)
+            }
+
+            // Test positive values
+            const ONE: u32 = pack(1);
+            const TWO_HUNDRED_AND_FIFTY: u32 = pack(250);
+            const MAX_POSITIVE_VALUE: u32 = pack(2047);
+
+            assert_eq!(s_type_immediate_32(ZERO), 0);
+            assert_eq!(s_type_immediate_32(ONE), 1);
+            assert_eq!(s_type_immediate_32(TWO_HUNDRED_AND_FIFTY), 250);
+            assert_eq!(s_type_immediate_32(MAX_POSITIVE_VALUE), 2047);
+
+            const fn pack_signed(v: i32) -> u32 {
+                pack(v as u32)
+            }
+
+            const MINUS_ONE: u32 = pack_signed(-1);
+            const MINUS_TWO_HUNDRED_AND_FIFTY: u32 = pack_signed(-250);
+            const MIN_NEGATIVE_VALUE: u32 = pack_signed(-2048);
+
+            assert_eq!(s_type_immediate_32(MINUS_TWO_HUNDRED_AND_FIFTY), -250);
+            assert_eq!(s_type_immediate_32(MINUS_ONE), -1);
+            assert_eq!(s_type_immediate_32(MIN_NEGATIVE_VALUE), -2048);
         }
     }
 }
