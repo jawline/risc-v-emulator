@@ -43,6 +43,20 @@ fn op_imm(c: &mut CpuState, memory: &mut Memory, instruction: u32) {
             let new_value = if source_value < immediate { 1 } else { 0 };
             c.registers.set(destination_register, new_value as u32);
         }
+        funct3::SLTIU => {
+
+            // This is the same as SLTI but the immediate is sign extended and then treated as an
+            // unsigned and the comparison is done as an unsigned.
+        
+            let source_register = decoder::rs1(instruction);
+            let destination_register = decoder::rd(instruction);
+
+            let immediate = decoder::i_type_immediate_32(instruction) as u32;
+            let source_value = c.registers.get(source_register);
+
+            let new_value = if source_value < immediate { 1 } else { 0 };
+            c.registers.set(destination_register, new_value as u32);
+        }
         _ => panic!("funct3 parameter should not be > 0b111"),
     };
 
@@ -140,6 +154,7 @@ mod test {
     fn execute_slti() {
         let (mut cpu, mut memory, table) = test_args();
 
+        // Test positive
         cpu.registers.set(1, 5);
         table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 4));
         assert_eq!(cpu.registers.get(1), 5);
@@ -155,5 +170,13 @@ mod test {
         assert_eq!(cpu.registers.get(1), 5);
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 12);
+
+        panic!("Test max / min int");
+    }
+
+    #[test]
+    fn execute_sltiu() {
+        let (mut cpu, mut memory, table) = test_args();
+        panic!("unimplemented");
     }
 }
