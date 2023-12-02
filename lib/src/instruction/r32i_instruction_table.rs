@@ -6,8 +6,6 @@ const INSTRUCTION_SIZE: u32 = 4;
 
 type CpuState = crate::cpu_r32i::CpuState<u32, 32>;
 
-type OpcodeHandler = fn(&mut CpuState, &mut Memory, /* instruction */ u32);
-
 fn panic_dump_state(reason: &str, instruction: u32, c: &mut CpuState) {
     panic!("{reason} {instruction:032b} {c:?}")
 }
@@ -39,6 +37,8 @@ fn apply_shift<F: Fn(u32, u32, u32) -> u32>(c: &mut CpuState, instruction: u32, 
     })
 }
 
+/// A series of instructions that operate on a source register and an I-type (12-bit) immediate,
+/// placing the result in rd.
 fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     match decoder::funct3(instruction) {
         op_imm::ADDI => apply_op_imm(c, instruction, |r, i| r + i),
@@ -81,20 +81,38 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     c.registers.pc += INSTRUCTION_SIZE;
 }
 
-pub struct InstructionTable {
-    // Total map from opcode to handler
-    handlers: [OpcodeHandler; 32],
+/// Load upper immediate (Places a u-type immediate containing the upper 20 bits of a 32-bit value
+/// into rd. All other bits are set to zero)
+fn lui(c: &mut CpuState, _memory: &mut Memory, instruction: u32) { 
+    let destination_register = decoder::rd(instruction);
+    let immediate = decoder::u_type_immediate(instruction);
+    c.registers.set(destination_register, immediate as u32);
+    c.registers.pc += INSTRUCTION_SIZE;
 }
+
+/// Add upper immediate to PC. Similar to LUI but adds the loaded immediate to current the program counter
+/// and places it in RD. This can be used to compute addresses for JALR instructions.
+fn auipc(c: &mut CpuState, _memory: &mut Memory, instruction: u32) { 
+    let destination_register = decoder::rd(instruction);
+    let immediate = decoder::u_type_immediate(instruction);
+    c.registers.set(destination_register, c.registers.pc + (immediate as u32));
+    c.registers.pc += INSTRUCTION_SIZE;
+}
+
+pub struct InstructionTable {}
 
 impl InstructionTable {
     pub const fn new() -> Self {
-        let mut handlers: [OpcodeHandler; 32] = [trap_opcode; 32];
-        handlers[opcodes::OP_IMM] = op_imm;
-        Self { handlers }
+        Self {}
     }
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
-        (self.handlers[decoder::opcode(instruction)])(cpu_state, memory, instruction)
+        match decoder::opcode(instruction) {
+            opcodes::OP_IMM => op_imm(cpu_state, memory, instruction),
+            opcodes::LUI => lui(cpu_state, memory, instruction),
+            opcodes::AUIPC => auipc(cpu_state, memory, instruction),
+            _ => trap_opcode(cpu_state, memory, instruction)
+        }
     }
 }
 
@@ -275,6 +293,18 @@ mod test {
 
     #[test]
     fn execute_xori() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_lui() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_auipc() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
