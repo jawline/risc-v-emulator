@@ -1,4 +1,4 @@
-use super::{decoder, funct3};
+use super::{decoder, funct3::op_imm};
 use crate::instruction::opcodes;
 use crate::memory::Memory;
 
@@ -30,11 +30,20 @@ fn apply_op_imm<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F
     c.registers.set(destination_register, new_value as u32);
 }
 
+fn apply_shift<F: Fn(u32, u32, u32) -> u32>(c: &mut CpuState, instruction: u32, f: F) {
+    apply_op_imm(c, instruction, |r, i| {
+        let i = i as u32;
+        let mode = i >> 5;
+        let bits = i & 0b1_1111;
+        f(r as u32, bits, mode) as i32
+    })
+}
+
 fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     match decoder::funct3(instruction) {
-        funct3::ADDI => apply_op_imm(c, instruction, |r, i| r + i),
-        funct3::SLTI => apply_op_imm(c, instruction, |r, i| if r < i { 1 } else { 0 }),
-        funct3::SLTIU =>
+        op_imm::ADDI => apply_op_imm(c, instruction, |r, i| r + i),
+        op_imm::SLTI => apply_op_imm(c, instruction, |r, i| if r < i { 1 } else { 0 }),
+        op_imm::SLTIU =>
         // This is the same as SLTI but the immediate is sign extended and then treated as an
         // unsigned and the comparison is done as an unsigned.
         {
@@ -47,10 +56,26 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
                 }
             })
         }
-        funct3::ANDI => apply_op_imm(c, instruction, |r, i| r & i),
-        funct3::ORI => apply_op_imm(c, instruction, |r, i| r | i),
-        funct3::XORI => apply_op_imm(c, instruction, |r, i| r ^ i),
-        _ => panic!("funct3 parameter should not be > 0b111"),
+        op_imm::ANDI => apply_op_imm(c, instruction, |r, i| r & i),
+        op_imm::ORI => apply_op_imm(c, instruction, |r, i| r | i),
+        op_imm::XORI => apply_op_imm(c, instruction, |r, i| r ^ i),
+        op_imm::SLLI => apply_shift(c, instruction, |r, i, mode|{
+            if mode != 0 {
+                panic!("SLL mode not zero");
+            }
+            r << i
+        }),
+        op_imm::SRLI => apply_shift(c, instruction, |r, i, mode|{
+            if mode == 0b0100000 {
+                // Rust will do an arithmetic right shift if the integer is signed
+                ((r as i32) >> i) as u32
+            } else if mode == 0b0000000 {
+                r >> i
+            } else {
+                panic!("SRL mode must be 0b0100000 or 0b0000000");
+            }
+        }),
+        8..=u8::MAX => panic!("funct3 parameter should not be > 0b111"),
     };
 
     c.registers.pc += INSTRUCTION_SIZE;
@@ -148,6 +173,12 @@ mod test {
         assert_eq!(cpu.registers.get(3), 6);
     }
 
+
+    #[test]
+    fn execute_addi_overflow() {
+        unimplemented!();
+    }
+
     #[test]
     fn execute_slti() {
         let (mut cpu, mut memory, table) = test_args();
@@ -232,20 +263,19 @@ mod test {
 
     #[test]
     fn execute_andi() {
-        let (mut cpu, mut memory, table) = test_args();
+        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_ori() {
-        let (mut cpu, mut memory, table) = test_args();
+        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_xori() {
-        let (mut cpu, mut memory, table) = test_args();
+        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
-
 }

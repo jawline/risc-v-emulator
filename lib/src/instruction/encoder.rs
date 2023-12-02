@@ -1,4 +1,4 @@
-use super::funct3::{ADDI, SLTI, SLTIU};
+use super::funct3::op_imm::{ADDI, SLTI, SLTIU};
 use super::opcodes::OP_IMM;
 
 const fn op_imm_funct3(
