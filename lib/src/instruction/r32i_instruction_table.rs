@@ -5,6 +5,42 @@ use super::{
 use crate::instruction::opcodes;
 use crate::memory::Memory;
 
+struct OpArgs<'a, 'b> {
+    state: &'a mut CpuState,
+    memory: &'b mut Memory,
+    instruction: u32,
+}
+
+impl<'a, 'b> OpArgs<'a, 'b> {
+    fn i_imm(&self) -> i32 {
+        decoder::i_type_immediate_32(self.instruction)
+    }
+
+    fn u_imm(&self) -> i32 {
+        decoder::u_type_immediate(self.instruction)
+    }
+
+    fn rd(&self) -> usize {
+        decoder::rd(self.instruction)
+    }
+
+    fn rs1(&self) -> usize {
+        decoder::rs1(self.instruction)
+    }
+
+    fn rs2(&self) -> usize {
+        decoder::rs2(self.instruction)
+    }
+
+    fn funct3(&self) -> u8 {
+        decoder::funct3(self.instruction)
+    }
+
+    fn funct7(&self) -> u8 {
+        decoder::funct7(self.instruction)
+    }
+}
+
 const INSTRUCTION_SIZE: u32 = 4;
 const FUNCT7_SWITCH: u32 = 0b0100000;
 
@@ -14,43 +50,44 @@ fn panic_dump_state(reason: &str, instruction: u32, c: &mut CpuState) {
     panic!("{reason} {instruction:032b} {c:?}")
 }
 
-fn trap_opcode(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
+fn trap_opcode(op: &mut OpArgs) {
     panic_dump_state(
         "Trap handler called. The emulated CPU encountered an illegal opcode",
-        instruction,
-        c,
+        op.instruction,
+        op.state,
     );
 }
 
-fn apply_op<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
-    let source_register1 = decoder::rs1(instruction);
-    let source_register2 = decoder::rs2(instruction);
-    let destination_register = decoder::rd(instruction);
-    let source_value1 = c.registers.geti(source_register1);
-    let source_value2 = c.registers.geti(source_register2);
+fn apply_op<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
+    let source_register1 = op.rs1();
+    let source_register2 = op.rs2();
+    let destination_register = op.rd();
+    let source_value1 = op.state.registers.geti(source_register1);
+    let source_value2 = op.state.registers.geti(source_register2);
     let new_value = f(source_value1, source_value2);
-    c.registers.set(destination_register, new_value as u32);
+    op.state
+        .registers
+        .set(destination_register, new_value as u32);
 }
 
-fn apply_op_funct7<F: Fn(i32, i32, u8) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
-    apply_op(c, instruction, |r1, r2| {
-        let funct7 = decoder::funct7(instruction);
-        f(r1, r2, funct7)
-    })
+fn apply_op_funct7<F: Fn(i32, i32, u8) -> i32>(op: &mut OpArgs, f: F) {
+    let funct7 = op.funct7();
+    apply_op(op, |r1, r2| f(r1, r2, funct7))
 }
 
-fn apply_op_imm<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
-    let source_register = decoder::rs1(instruction);
-    let destination_register = decoder::rd(instruction);
-    let immediate = decoder::i_type_immediate_32(instruction);
-    let source_value = c.registers.get(source_register) as i32;
+fn apply_op_imm<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
+    let source_register = op.rs1();
+    let destination_register = op.rd();
+    let immediate = op.i_imm();
+    let source_value = op.state.registers.get(source_register) as i32;
     let new_value = f(source_value, immediate);
-
-    c.registers.set(destination_register, new_value as u32);
+    op.state
+        .registers
+        .set(destination_register, new_value as u32);
 }
 
-fn apply_op_imm_funct7<F: Fn(u32, u32, u32) -> u32>(c: &mut CpuState, instruction: u32, f: F) {
-    apply_op_imm(c, instruction, |r, i| {
+fn apply_op_imm_funct7<F: Fn(u32, u32, u32) -> u32>(op: &mut OpArgs, f: F) {
+    apply_op_imm(op, |r, i| {
         let i = i as u32;
         let mode = i >> 5;
         let bits = i & 0b1_1111;
@@ -60,15 +97,15 @@ fn apply_op_imm_funct7<F: Fn(u32, u32, u32) -> u32>(c: &mut CpuState, instructio
 
 /// A series of instructions that operate on a source register and an I-type (12-bit) immediate,
 /// placing the result in rd.
-fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
-    match decoder::funct3(instruction) {
-        op_imm::ADDI => apply_op_imm(c, instruction, |r, i| r + i),
-        op_imm::SLTI => apply_op_imm(c, instruction, |r, i| if r < i { 1 } else { 0 }),
+fn op_imm(op: &mut OpArgs) {
+    match op.funct3() {
+        op_imm::ADDI => apply_op_imm(op, |r, i| r + i),
+        op_imm::SLTI => apply_op_imm(op, |r, i| if r < i { 1 } else { 0 }),
         op_imm::SLTIU =>
         // This is the same as SLTI but the immediate is sign extended and then treated as an
         // unsigned and the comparison is done as an unsigned.
         {
-            apply_op_imm(c, instruction, |r, i| {
+            apply_op_imm(op, |r, i| {
                 let (r, i) = (r as u32, i as u32);
                 if r < i {
                     1
@@ -77,16 +114,16 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
                 }
             })
         }
-        op_imm::ANDI => apply_op_imm(c, instruction, |r, i| r & i),
-        op_imm::ORI => apply_op_imm(c, instruction, |r, i| r | i),
-        op_imm::XORI => apply_op_imm(c, instruction, |r, i| r ^ i),
-        op_imm::SLLI => apply_op_imm_funct7(c, instruction, |r, i, mode| {
+        op_imm::ANDI => apply_op_imm(op, |r, i| r & i),
+        op_imm::ORI => apply_op_imm(op, |r, i| r | i),
+        op_imm::XORI => apply_op_imm(op, |r, i| r ^ i),
+        op_imm::SLLI => apply_op_imm_funct7(op, |r, i, mode| {
             if mode != 0 {
                 panic!("SLL mode not zero");
             }
             r << i
         }),
-        op_imm::SRLI_OR_SRAI => apply_op_imm_funct7(c, instruction, |r, i, mode| {
+        op_imm::SRLI_OR_SRAI => apply_op_imm_funct7(op, |r, i, mode| {
             // If FUNCT7_SWITCH is set then this is an SRAI rather than an SRLI
             if mode == FUNCT7_SWITCH {
                 // Rust will do an arithmetic right shift if the integer is signed
@@ -100,25 +137,25 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
         8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
     };
 
-    c.registers.pc += INSTRUCTION_SIZE;
+    op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
 /// A series of instructions that operate on two source registers, placing the result in rd.
-fn op(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
-    match decoder::funct3(instruction) {
-        op::ADD_OR_SUB => apply_op_funct7(c, instruction, |r1, r2, funct7| {
+fn op(op: &mut OpArgs) {
+    match op.funct3() {
+        op::ADD_OR_SUB => apply_op_funct7(op, |r1, r2, funct7| {
             if funct7 as u32 == FUNCT7_SWITCH {
                 r1 - r2
             } else {
                 r1 + r2
             }
         }),
-        op::SLT => apply_op(c, instruction, |r1, r2| if r1 < r2 { 1 } else { 0 }),
+        op::SLT => apply_op(op, |r1, r2| if r1 < r2 { 1 } else { 0 }),
         op::SLTU =>
         // This is the same as SLTI but the immediate is sign extended and then treated as an
         // unsigned and the comparison is done as an unsigned.
         {
-            apply_op(c, instruction, |r1, r2| {
+            apply_op(op, |r1, r2| {
                 let (r1, r2) = (r1 as u32, r2 as u32);
                 if r1 < r2 {
                     1
@@ -127,11 +164,11 @@ fn op(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
                 }
             })
         }
-        op::AND => apply_op(c, instruction, |r1, r2| r1 & r2),
-        op::OR => apply_op(c, instruction, |r, i| r | i),
-        op::XOR => apply_op(c, instruction, |r, i| r ^ i),
-        op::SLL => apply_op(c, instruction, |r1, r2| ((r1 as u32) << (r2 as u32)) as i32),
-        op::SRL_OR_SRA => apply_op_funct7(c, instruction, |r1, r2, funct7| {
+        op::AND => apply_op(op, |r1, r2| r1 & r2),
+        op::OR => apply_op(op, |r, i| r | i),
+        op::XOR => apply_op(op, |r, i| r ^ i),
+        op::SLL => apply_op(op, |r1, r2| ((r1 as u32) << (r2 as u32)) as i32),
+        op::SRL_OR_SRA => apply_op_funct7(op, |r1, r2, funct7| {
             if funct7 as u32 == FUNCT7_SWITCH {
                 ((r1 as u32) >> (r2 as u32)) as i32
             } else {
@@ -141,26 +178,30 @@ fn op(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
         8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
     };
 
-    c.registers.pc += INSTRUCTION_SIZE;
+    op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
 /// Load upper immediate (Places a u-type immediate containing the upper 20 bits of a 32-bit value
 /// into rd. All other bits are set to zero)
-fn lui(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
-    let destination_register = decoder::rd(instruction);
-    let immediate = decoder::u_type_immediate(instruction);
-    c.registers.set(destination_register, immediate as u32);
-    c.registers.pc += INSTRUCTION_SIZE;
+fn lui(op: &mut OpArgs) {
+    let destination_register = op.rd();
+    let immediate = op.u_imm();
+    op.state
+        .registers
+        .set(destination_register, immediate as u32);
+    op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
 /// Add upper immediate to PC. Similar to LUI but adds the loaded immediate to current the program counter
 /// and places it in RD. This can be used to compute addresses for JALR instructions.
-fn auipc(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
-    let destination_register = decoder::rd(instruction);
-    let immediate = decoder::u_type_immediate(instruction);
-    c.registers
-        .set(destination_register, c.registers.pc + (immediate as u32));
-    c.registers.pc += INSTRUCTION_SIZE;
+fn auipc(op: &mut OpArgs) {
+    let destination_register = op.rd();
+    let immediate = op.u_imm();
+    op.state.registers.set(
+        destination_register,
+        op.state.registers.pc + (immediate as u32),
+    );
+    op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
 pub struct InstructionTable {}
@@ -171,12 +212,18 @@ impl InstructionTable {
     }
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
+        let mut op_arg = OpArgs {
+            state: cpu_state,
+            memory: memory,
+            instruction: instruction,
+        };
+
         match decoder::opcode(instruction) {
-            opcodes::OP => op(cpu_state, memory, instruction),
-            opcodes::OP_IMM => op_imm(cpu_state, memory, instruction),
-            opcodes::LUI => lui(cpu_state, memory, instruction),
-            opcodes::AUIPC => auipc(cpu_state, memory, instruction),
-            _ => trap_opcode(cpu_state, memory, instruction),
+            opcodes::OP => op(&mut op_arg),
+            opcodes::OP_IMM => op_imm(&mut op_arg),
+            opcodes::LUI => lui(&mut op_arg),
+            opcodes::AUIPC => auipc(&mut op_arg),
+            _ => trap_opcode(&mut op_arg),
         }
     }
 }
