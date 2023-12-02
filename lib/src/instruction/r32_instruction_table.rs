@@ -168,8 +168,8 @@ fn auipc(op: &mut OpArgs) {
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
-// JAL (jump and link) adds the signed J-immediate value to the current PC after storing the
-// current PC + 4 in the destination register.
+/// JAL (jump and link) adds the signed J-immediate value to the current PC after storing the
+/// current PC + 4 in the destination register.
 fn jal(op: &mut OpArgs) {
     let destination_register = op.rd();
     let imm_value = op.j_imm();
