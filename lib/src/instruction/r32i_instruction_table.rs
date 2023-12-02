@@ -6,6 +6,7 @@ use crate::instruction::opcodes;
 use crate::memory::Memory;
 
 const INSTRUCTION_SIZE: u32 = 4;
+const FUNCT7_SWITCH: u32 = 0b0100000;
 
 type CpuState = crate::cpu_r32i::CpuState<u32, 32>;
 
@@ -31,6 +32,13 @@ fn apply_op<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
     c.registers.set(destination_register, new_value as u32);
 }
 
+fn apply_op_funct7<F: Fn(i32, i32, u8) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
+    apply_op(c, instruction, |r1, r2| {
+        let funct7 = decoder::funct7(instruction);
+        f(r1, r2, funct7)
+    })
+}
+
 fn apply_op_imm<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
     let source_register = decoder::rs1(instruction);
     let destination_register = decoder::rd(instruction);
@@ -41,7 +49,7 @@ fn apply_op_imm<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F
     c.registers.set(destination_register, new_value as u32);
 }
 
-fn apply_shift<F: Fn(u32, u32, u32) -> u32>(c: &mut CpuState, instruction: u32, f: F) {
+fn apply_op_imm_funct7<F: Fn(u32, u32, u32) -> u32>(c: &mut CpuState, instruction: u32, f: F) {
     apply_op_imm(c, instruction, |r, i| {
         let i = i as u32;
         let mode = i >> 5;
@@ -72,14 +80,15 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
         op_imm::ANDI => apply_op_imm(c, instruction, |r, i| r & i),
         op_imm::ORI => apply_op_imm(c, instruction, |r, i| r | i),
         op_imm::XORI => apply_op_imm(c, instruction, |r, i| r ^ i),
-        op_imm::SLLI => apply_shift(c, instruction, |r, i, mode| {
+        op_imm::SLLI => apply_op_imm_funct7(c, instruction, |r, i, mode| {
             if mode != 0 {
                 panic!("SLL mode not zero");
             }
             r << i
         }),
-        op_imm::SRLI => apply_shift(c, instruction, |r, i, mode| {
-            if mode == 0b0100000 {
+        op_imm::SRLI_OR_SRAI => apply_op_imm_funct7(c, instruction, |r, i, mode| {
+            // If FUNCT7_SWITCH is set then this is an SRAI rather than an SRLI
+            if mode == FUNCT7_SWITCH {
                 // Rust will do an arithmetic right shift if the integer is signed
                 ((r as i32) >> i) as u32
             } else if mode == 0b0000000 {
@@ -97,7 +106,13 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
 /// A series of instructions that operate on two source registers, placing the result in rd.
 fn op(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     match decoder::funct3(instruction) {
-        op::ADD => unimplemented!(),
+        op::ADD_OR_SUB => apply_op_funct7(c, instruction, |r1, r2, funct7| {
+            if funct7 as u32 == FUNCT7_SWITCH {
+                r1 - r2
+            } else {
+                r1 + r2
+            }
+        }),
         op::SLT => apply_op(c, instruction, |r1, r2| if r1 < r2 { 1 } else { 0 }),
         op::SLTU =>
         // This is the same as SLTI but the immediate is sign extended and then treated as an
@@ -112,11 +127,17 @@ fn op(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
                 }
             })
         }
-        op::AND => apply_op(c, instruction, |r, i| r & i),
+        op::AND => apply_op(c, instruction, |r1, r2| r1 & r2),
         op::OR => apply_op(c, instruction, |r, i| r | i),
         op::XOR => apply_op(c, instruction, |r, i| r ^ i),
-        op::SLL => unimplemented!(),
-        op::SRL => unimplemented!(),
+        op::SLL => apply_op(c, instruction, |r1, r2| ((r1 as u32) << (r2 as u32)) as i32),
+        op::SRL_OR_SRA => apply_op_funct7(c, instruction, |r1, r2, funct7| {
+            if funct7 as u32 == FUNCT7_SWITCH {
+                ((r1 as u32) >> (r2 as u32)) as i32
+            } else {
+                r1 >> (r2 as u32)
+            }
+        }),
         8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
     };
 
