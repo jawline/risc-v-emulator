@@ -2,44 +2,8 @@ use super::{
     decoder,
     funct3::{op, op_imm},
 };
-use crate::instruction::opcodes;
+use crate::instruction::{op_args::OpArgs, opcodes};
 use crate::memory::Memory;
-
-struct OpArgs<'a, 'b> {
-    state: &'a mut CpuState,
-    memory: &'b mut Memory,
-    instruction: u32,
-}
-
-impl<'a, 'b> OpArgs<'a, 'b> {
-    fn i_imm(&self) -> i32 {
-        decoder::i_type_immediate_32(self.instruction)
-    }
-
-    fn u_imm(&self) -> i32 {
-        decoder::u_type_immediate(self.instruction)
-    }
-
-    fn rd(&self) -> usize {
-        decoder::rd(self.instruction)
-    }
-
-    fn rs1(&self) -> usize {
-        decoder::rs1(self.instruction)
-    }
-
-    fn rs2(&self) -> usize {
-        decoder::rs2(self.instruction)
-    }
-
-    fn funct3(&self) -> u8 {
-        decoder::funct3(self.instruction)
-    }
-
-    fn funct7(&self) -> u8 {
-        decoder::funct7(self.instruction)
-    }
-}
 
 const INSTRUCTION_SIZE: u32 = 4;
 const FUNCT7_SWITCH: u32 = 0b0100000;
@@ -416,6 +380,66 @@ mod test {
 
     #[test]
     fn execute_auipc() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_add() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sub() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_slt() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sltu() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_and() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_or() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_xor() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sll() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_srl() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sra() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
