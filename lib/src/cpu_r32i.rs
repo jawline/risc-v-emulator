@@ -25,7 +25,7 @@ impl Cpu {
         }
     }
 
-    pub fn step(memory: &mut Memory) {
+    pub fn step(_memory: &mut Memory) {
         unimplemented!();
     }
 }

@@ -11,7 +11,7 @@ const fn op_imm_funct3(
         panic!("destination or source > 32, cannot construct instruction");
     }
 
-    if (imm > 0b1111_1111_1111) {
+    if imm > 0b1111_1111_1111 {
         panic!("immediate exceeds 12 bits");
     }
 

@@ -2,7 +2,7 @@ use std::default::Default;
 
 #[derive(Debug)]
 struct General<T: Default + Copy, const N: usize> {
-    pub registers: [T; N],
+    registers: [T; N],
 }
 
 impl<T: Default + Copy, const N: usize> General<T, N> {
@@ -27,7 +27,7 @@ impl<T: Default + Copy, const N: usize> General<T, N> {
 
 #[derive(Debug)]
 pub struct Registers<T: Default + Copy, const N: usize> {
-    pub general: General<T, N>,
+    general: General<T, N>,
     pub pc: T,
 }
 
@@ -46,6 +46,16 @@ impl<T: Default + Copy, const N: usize> Registers<T, N> {
 
     pub fn set(&mut self, slot: usize, value: T) {
         self.general.set(slot, value)
+    }
+}
+
+impl Registers<u32, 32> {
+    pub fn geti(&self, slot: usize) -> i32 {
+        self.get(slot) as i32
+    }
+
+    pub fn seti(&mut self, slot: usize, val: i32) {
+        self.set(slot, val as u32)
     }
 }
 

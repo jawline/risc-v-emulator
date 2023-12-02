@@ -1,5 +1,4 @@
-use super::{decoder, encoder, funct3};
-use crate::cpu_r32i::Cpu;
+use super::{decoder, funct3};
 use crate::instruction::opcodes;
 use crate::memory::Memory;
 
@@ -13,7 +12,7 @@ fn panic_dump_state(reason: &str, instruction: u32, c: &mut CpuState) {
     panic!("{reason} {instruction:032b} {c:?}")
 }
 
-fn trap_opcode(c: &mut CpuState, memory: &mut Memory, instruction: u32) {
+fn trap_opcode(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     panic_dump_state(
         "Trap handler called. The emulated CPU encountered an illegal opcode",
         instruction,
@@ -21,7 +20,7 @@ fn trap_opcode(c: &mut CpuState, memory: &mut Memory, instruction: u32) {
     );
 }
 
-fn op_imm(c: &mut CpuState, memory: &mut Memory, instruction: u32) {
+fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     match decoder::funct3(instruction) {
         funct3::ADDI => {
             let source_register = decoder::rs1(instruction);
@@ -44,10 +43,9 @@ fn op_imm(c: &mut CpuState, memory: &mut Memory, instruction: u32) {
             c.registers.set(destination_register, new_value as u32);
         }
         funct3::SLTIU => {
-
             // This is the same as SLTI but the immediate is sign extended and then treated as an
             // unsigned and the comparison is done as an unsigned.
-        
+
             let source_register = decoder::rs1(instruction);
             let destination_register = decoder::rd(instruction);
 
@@ -82,15 +80,20 @@ impl InstructionTable {
 
 #[cfg(test)]
 mod test {
+    use super::super::encoder;
     use super::*;
 
     const fn pack_negative_into_12b(val: i16) -> u16 {
+        if val < -2048 || val > 2047 {
+            panic!("12b signed value is out of range");
+        }
+
         (val as u16) & 0b0000_1111_1111_1111
     }
 
     #[test]
     fn create_table() {
-        let table = InstructionTable::new();
+        let _table = InstructionTable::new();
     }
 
     fn test_args() -> (CpuState, Memory, InstructionTable) {
@@ -171,12 +174,64 @@ mod test {
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 12);
 
-        panic!("Test max / min int");
+        // Test max int
+        cpu.registers.set(1, 2047 as u32);
+        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047));
+        assert_eq!(cpu.registers.get(2), 0);
+        assert_eq!(cpu.registers.pc, 16);
+
+        cpu.registers.set(1, 2046 as u32);
+        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047));
+        assert_eq!(cpu.registers.get(2), 1);
+        assert_eq!(cpu.registers.pc, 20);
+
+        // Test negative
+        cpu.registers.set(1, (-5000i32) as u32);
+        table.step(
+            &mut cpu,
+            &mut memory,
+            encoder::slti(2, 1, pack_negative_into_12b(-2048)),
+        );
+        assert_eq!(cpu.registers.get(2), 1);
+        assert_eq!(cpu.registers.pc, 24);
+
+        cpu.registers.set(1, (-2000i32) as u32);
+        table.step(
+            &mut cpu,
+            &mut memory,
+            encoder::slti(2, 1, pack_negative_into_12b(-2048)),
+        );
+        assert_eq!(cpu.registers.get(2), 0);
+        assert_eq!(cpu.registers.pc, 28);
     }
 
     #[test]
     fn execute_sltiu() {
         let (mut cpu, mut memory, table) = test_args();
-        panic!("unimplemented");
+
+        cpu.registers.set(1, 0);
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 0));
+        assert_eq!(cpu.registers.get(2), 0);
+        assert_eq!(cpu.registers.pc, 4);
+
+        cpu.registers.set(1, 0);
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1));
+        assert_eq!(cpu.registers.get(2), 1);
+        assert_eq!(cpu.registers.pc, 8);
+
+        cpu.registers.set(1, 2);
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1));
+        assert_eq!(cpu.registers.get(2), 0);
+        assert_eq!(cpu.registers.pc, 12);
+
+        cpu.registers.set(1, 2048);
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047));
+        assert_eq!(cpu.registers.get(2), 0);
+        assert_eq!(cpu.registers.pc, 16);
+
+        cpu.registers.set(1, 2046);
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047));
+        assert_eq!(cpu.registers.get(2), 1);
+        assert_eq!(cpu.registers.pc, 20);
     }
 }
