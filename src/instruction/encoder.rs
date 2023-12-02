@@ -1,18 +1,17 @@
+use super::funct3::{ADDI, SLTI};
 use super::opcodes::OP_IMM;
-use super::funct3::ADDI;
 
-/// Construct an add-immediate instruction that will add a signed 12-bit immediate
-/// to the register in rs1 and then place it in rd
-pub const fn addi(
+const fn op_imm_funct3(
     destination_register: usize,
     source_register: usize,
+    funct3: u8,
     imm: u16,
 ) -> u32 {
-    if destination_register > 32 || source_register > 32 {
+    if destination_register > 32 || source_register > 32 || funct3 > 0b111 {
         panic!("destination or source > 32, cannot construct instruction");
     }
 
-    if (imm & 0b1111_0000_0000_000) != 0 {
+    if (imm > 0b1111_1111_1111) {
         panic!("immediate exceeds 12 bits");
     }
 
@@ -21,13 +20,26 @@ pub const fn addi(
 
     (OP_IMM as u32)
         | (destination_register << 7)
-        | ((ADDI as u32) << 12)
+        | ((funct3 as u32) << 12)
         | (source_register << 15)
         | (imm as u32) << 20
 }
 
+/// Construct an add-immediate instruction that will add a signed 12-bit immediate
+/// to the register in rs1 and then place it in rd
+pub const fn addi(destination_register: usize, source_register: usize, imm: u16) -> u32 {
+    op_imm_funct3(destination_register, source_register, ADDI, imm)
+}
+
+/// Construct a set-less-than-immediate (SLTI) instruction that will set the destination
+/// register to 1 if the register rs1 is < the sign extended immediate and set the destination
+/// register to zero otherwise.
+pub const fn slti(destination_register: usize, source_register: usize, imm: u16) -> u32 {
+    op_imm_funct3(destination_register, source_register, SLTI, imm)
+}
+
 /// Construct a canonical no-op.
-/// 
+///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
 pub const fn no_op() -> u32 {
     addi(0, 0, 0)
@@ -35,8 +47,8 @@ pub const fn no_op() -> u32 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::super::decoder::*;
+    use super::*;
 
     #[test]
     fn test_addi() {

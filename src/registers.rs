@@ -1,5 +1,6 @@
 use std::default::Default;
 
+#[derive(Debug)]
 struct General<T: Default + Copy, const N: usize> {
     pub registers: [T; N],
 }
@@ -24,6 +25,7 @@ impl<T: Default + Copy, const N: usize> General<T, N> {
     }
 }
 
+#[derive(Debug)]
 pub struct Registers<T: Default + Copy, const N: usize> {
     pub general: General<T, N>,
     pub pc: T,
