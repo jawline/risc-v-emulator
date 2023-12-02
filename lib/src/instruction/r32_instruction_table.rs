@@ -1,6 +1,7 @@
 use super::{
     decoder,
     funct3::{op, op_imm},
+    util::C_5_BITS,
 };
 use crate::instruction::{op_args::OpArgs, opcodes};
 use crate::memory::Memory;
@@ -34,6 +35,10 @@ fn apply_op<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
         .set(destination_register, new_value as u32);
 }
 
+fn apply_op_unsigned<F: Fn(u32, u32) -> u32>(op: &mut OpArgs, f: F) {
+    apply_op(op, |r1, r2| f(r1 as u32, r2 as u32) as i32)
+}
+
 fn apply_op_with_funct7_switch<F1: Fn(i32, i32) -> i32, F2: Fn(i32, i32) -> i32>(
     op: &mut OpArgs,
     f_switch: F1,
@@ -62,11 +67,28 @@ fn apply_op_imm<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
         .set(destination_register, new_value as u32);
 }
 
-fn apply_op_imm_funct7<F: Fn(u32, u32, u8) -> u32>(op: &mut OpArgs, f: F) {
+fn apply_op_imm_unsigned<F: Fn(u32, u32) -> u32>(op: &mut OpArgs, f: F) {
+    apply_op_imm(op, |r, i| f(r as u32, i as u32) as i32)
+}
+
+fn apply_op_imm_unsigned_truncated_to_5_bits<F: Fn(u32, u32) -> u32>(op: &mut OpArgs, f: F) {
+    apply_op_imm_unsigned(op, |r, i| f(r, i & C_5_BITS))
+}
+
+fn apply_op_imm_funct7<F1: Fn(u32, u32) -> u32, F2: Fn(u32, u32) -> u32>(
+    op: &mut OpArgs,
+    f_switch: F1,
+    f_no_switch: F2,
+) {
     let funct7 = op.funct7();
-    apply_op_imm(op, |r, i| {
-        let bits = (i as u32) & 0b1_1111;
-        f(r as u32, bits, funct7) as i32
+    apply_op_imm_unsigned_truncated_to_5_bits(op, |r, i| {
+        if funct7 == FUNCT7_SWITCH {
+            f_switch(r, i)
+        } else if funct7 == 0 {
+            f_no_switch(r, i)
+        } else {
+            panic!("funct7 must be zero or FUNCT7_SWITCH")
+        }
     })
 }
 
@@ -75,40 +97,22 @@ fn apply_op_imm_funct7<F: Fn(u32, u32, u8) -> u32>(op: &mut OpArgs, f: F) {
 fn op_imm(op: &mut OpArgs) {
     match op.funct3() {
         op_imm::ADDI => apply_op_imm(op, |r, i| r + i),
-        op_imm::SLTI => apply_op_imm(op, |r, i| if r < i { 1 } else { 0 }),
+        op_imm::SLTI => apply_op_imm(op, |r, i| i32::from(r < i)),
         op_imm::SLTIU =>
         // This is the same as SLTI but the immediate is sign extended and then treated as an
         // unsigned and the comparison is done as an unsigned.
         {
-            apply_op_imm(op, |r, i| {
-                let (r, i) = (r as u32, i as u32);
-                if r < i {
-                    1
-                } else {
-                    0
-                }
-            })
+            apply_op_imm_unsigned(op, |r, i| u32::from(r < i))
         }
         op_imm::ANDI => apply_op_imm(op, |r, i| r & i),
         op_imm::ORI => apply_op_imm(op, |r, i| r | i),
         op_imm::XORI => apply_op_imm(op, |r, i| r ^ i),
-        op_imm::SLLI => apply_op_imm_funct7(op, |r, i, mode| {
-            if mode != 0 {
-                panic!("SLL mode not zero");
-            }
-            r << i
-        }),
-        op_imm::SRLI_OR_SRAI => apply_op_imm_funct7(op, |r, i, mode| {
-            // If FUNCT7_SWITCH is set then this is an SRAI rather than an SRLI
-            if mode == FUNCT7_SWITCH {
-                // Rust will do an arithmetic right shift if the integer is signed
-                ((r as i32) >> i) as u32
-            } else if mode == 0 {
-                r >> i
-            } else {
-                panic!("SRL mode must be 0b0100000 or 0b0000000");
-            }
-        }),
+        op_imm::SLLI => {
+            apply_op_imm_funct7(op, |_r, _i| panic!("SLL mode not zero"), |r, i| r << i)
+        }
+        op_imm::SRLI_OR_SRAI => {
+            apply_op_imm_funct7(op, |r, i| ((r as i32) >> i) as u32, |r, i| r >> i)
+        }
         8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
     };
 
@@ -119,19 +123,12 @@ fn op_imm(op: &mut OpArgs) {
 fn op(op: &mut OpArgs) {
     match op.funct3() {
         op::ADD_OR_SUB => apply_op_with_funct7_switch(op, |r1, r2| r1 - r2, |r1, r2| r1 + r2),
-        op::SLT => apply_op(op, |r1, r2| if r1 < r2 { 1 } else { 0 }),
+        op::SLT => apply_op(op, |r1, r2| i32::from(r1 < r2)),
         op::SLTU =>
         // This is the same as SLTI but the immediate is sign extended and then treated as an
         // unsigned and the comparison is done as an unsigned.
         {
-            apply_op(op, |r1, r2| {
-                let (r1, r2) = (r1 as u32, r2 as u32);
-                if r1 < r2 {
-                    1
-                } else {
-                    0
-                }
-            })
+            apply_op_unsigned(op, |r1, r2| u32::from(r1 < r2))
         }
         op::AND => apply_op(op, |r1, r2| r1 & r2),
         op::OR => apply_op(op, |r, i| r | i),
