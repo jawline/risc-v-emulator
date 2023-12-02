@@ -6,7 +6,7 @@ use crate::instruction::{op_args::OpArgs, opcodes};
 use crate::memory::Memory;
 
 const INSTRUCTION_SIZE: u32 = 4;
-const FUNCT7_SWITCH: u32 = 0b0100000;
+const FUNCT7_SWITCH: u8 = 0b0100000;
 
 type CpuState = crate::cpu_r32i::CpuState<u32, 32>;
 
@@ -34,9 +34,21 @@ fn apply_op<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
         .set(destination_register, new_value as u32);
 }
 
-fn apply_op_funct7<F: Fn(i32, i32, u8) -> i32>(op: &mut OpArgs, f: F) {
+fn apply_op_with_funct7_switch<F1: Fn(i32, i32) -> i32, F2: Fn(i32, i32) -> i32>(
+    op: &mut OpArgs,
+    f_switch: F1,
+    f_no_switch: F2,
+) {
     let funct7 = op.funct7();
-    apply_op(op, |r1, r2| f(r1, r2, funct7))
+    apply_op(op, |r1, r2| {
+        if funct7 == FUNCT7_SWITCH {
+            f_switch(r1, r2)
+        } else if funct7 == 0 {
+            f_no_switch(r1, r2)
+        } else {
+            panic!("funct7 must be zero or FUNCT7_SWITCH")
+        }
+    })
 }
 
 fn apply_op_imm<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
@@ -50,12 +62,11 @@ fn apply_op_imm<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
         .set(destination_register, new_value as u32);
 }
 
-fn apply_op_imm_funct7<F: Fn(u32, u32, u32) -> u32>(op: &mut OpArgs, f: F) {
+fn apply_op_imm_funct7<F: Fn(u32, u32, u8) -> u32>(op: &mut OpArgs, f: F) {
+    let funct7 = op.funct7();
     apply_op_imm(op, |r, i| {
-        let i = i as u32;
-        let mode = i >> 5;
-        let bits = i & 0b1_1111;
-        f(r as u32, bits, mode) as i32
+        let bits = (i as u32) & 0b1_1111;
+        f(r as u32, bits, funct7) as i32
     })
 }
 
@@ -92,7 +103,7 @@ fn op_imm(op: &mut OpArgs) {
             if mode == FUNCT7_SWITCH {
                 // Rust will do an arithmetic right shift if the integer is signed
                 ((r as i32) >> i) as u32
-            } else if mode == 0b0000000 {
+            } else if mode == 0 {
                 r >> i
             } else {
                 panic!("SRL mode must be 0b0100000 or 0b0000000");
@@ -107,13 +118,7 @@ fn op_imm(op: &mut OpArgs) {
 /// A series of instructions that operate on two source registers, placing the result in rd.
 fn op(op: &mut OpArgs) {
     match op.funct3() {
-        op::ADD_OR_SUB => apply_op_funct7(op, |r1, r2, funct7| {
-            if funct7 as u32 == FUNCT7_SWITCH {
-                r1 - r2
-            } else {
-                r1 + r2
-            }
-        }),
+        op::ADD_OR_SUB => apply_op_with_funct7_switch(op, |r1, r2| r1 - r2, |r1, r2| r1 + r2),
         op::SLT => apply_op(op, |r1, r2| if r1 < r2 { 1 } else { 0 }),
         op::SLTU =>
         // This is the same as SLTI but the immediate is sign extended and then treated as an
@@ -132,13 +137,11 @@ fn op(op: &mut OpArgs) {
         op::OR => apply_op(op, |r, i| r | i),
         op::XOR => apply_op(op, |r, i| r ^ i),
         op::SLL => apply_op(op, |r1, r2| ((r1 as u32) << (r2 as u32)) as i32),
-        op::SRL_OR_SRA => apply_op_funct7(op, |r1, r2, funct7| {
-            if funct7 as u32 == FUNCT7_SWITCH {
-                ((r1 as u32) >> (r2 as u32)) as i32
-            } else {
-                r1 >> (r2 as u32)
-            }
-        }),
+        op::SRL_OR_SRA => apply_op_with_funct7_switch(
+            op,
+            |r1, r2| ((r1 as u32) >> (r2 as u32)) as i32,
+            |r1, r2| r1 >> (r2 as u32),
+        ),
         8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
     };
 
@@ -373,18 +376,6 @@ mod test {
     }
 
     #[test]
-    fn execute_lui() {
-        let (mut _cpu, mut _memory, _table) = test_args();
-        unimplemented!();
-    }
-
-    #[test]
-    fn execute_auipc() {
-        let (mut _cpu, mut _memory, _table) = test_args();
-        unimplemented!();
-    }
-
-    #[test]
     fn execute_add() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
@@ -440,6 +431,18 @@ mod test {
 
     #[test]
     fn execute_sra() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_lui() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_auipc() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
