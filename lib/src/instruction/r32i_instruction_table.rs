@@ -1,4 +1,7 @@
-use super::{decoder, funct3::op_imm};
+use super::{
+    decoder,
+    funct3::{op, op_imm},
+};
 use crate::instruction::opcodes;
 use crate::memory::Memory;
 
@@ -16,6 +19,16 @@ fn trap_opcode(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
         instruction,
         c,
     );
+}
+
+fn apply_op<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
+    let source_register1 = decoder::rs1(instruction);
+    let source_register2 = decoder::rs2(instruction);
+    let destination_register = decoder::rd(instruction);
+    let source_value1 = c.registers.geti(source_register1);
+    let source_value2 = c.registers.geti(source_register2);
+    let new_value = f(source_value1, source_value2);
+    c.registers.set(destination_register, new_value as u32);
 }
 
 fn apply_op_imm<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
@@ -59,13 +72,13 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
         op_imm::ANDI => apply_op_imm(c, instruction, |r, i| r & i),
         op_imm::ORI => apply_op_imm(c, instruction, |r, i| r | i),
         op_imm::XORI => apply_op_imm(c, instruction, |r, i| r ^ i),
-        op_imm::SLLI => apply_shift(c, instruction, |r, i, mode|{
+        op_imm::SLLI => apply_shift(c, instruction, |r, i, mode| {
             if mode != 0 {
                 panic!("SLL mode not zero");
             }
             r << i
         }),
-        op_imm::SRLI => apply_shift(c, instruction, |r, i, mode|{
+        op_imm::SRLI => apply_shift(c, instruction, |r, i, mode| {
             if mode == 0b0100000 {
                 // Rust will do an arithmetic right shift if the integer is signed
                 ((r as i32) >> i) as u32
@@ -75,7 +88,36 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
                 panic!("SRL mode must be 0b0100000 or 0b0000000");
             }
         }),
-        8..=u8::MAX => panic!("funct3 parameter should not be > 0b111"),
+        8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
+    };
+
+    c.registers.pc += INSTRUCTION_SIZE;
+}
+
+/// A series of instructions that operate on two source registers, placing the result in rd.
+fn op(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
+    match decoder::funct3(instruction) {
+        op::ADD => unimplemented!(),
+        op::SLT => apply_op(c, instruction, |r1, r2| if r1 < r2 { 1 } else { 0 }),
+        op::SLTU =>
+        // This is the same as SLTI but the immediate is sign extended and then treated as an
+        // unsigned and the comparison is done as an unsigned.
+        {
+            apply_op(c, instruction, |r1, r2| {
+                let (r1, r2) = (r1 as u32, r2 as u32);
+                if r1 < r2 {
+                    1
+                } else {
+                    0
+                }
+            })
+        }
+        op::AND => apply_op(c, instruction, |r, i| r & i),
+        op::OR => apply_op(c, instruction, |r, i| r | i),
+        op::XOR => apply_op(c, instruction, |r, i| r ^ i),
+        op::SLL => unimplemented!(),
+        op::SRL => unimplemented!(),
+        8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
     };
 
     c.registers.pc += INSTRUCTION_SIZE;
@@ -83,7 +125,7 @@ fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
 
 /// Load upper immediate (Places a u-type immediate containing the upper 20 bits of a 32-bit value
 /// into rd. All other bits are set to zero)
-fn lui(c: &mut CpuState, _memory: &mut Memory, instruction: u32) { 
+fn lui(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     let destination_register = decoder::rd(instruction);
     let immediate = decoder::u_type_immediate(instruction);
     c.registers.set(destination_register, immediate as u32);
@@ -92,10 +134,11 @@ fn lui(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
 
 /// Add upper immediate to PC. Similar to LUI but adds the loaded immediate to current the program counter
 /// and places it in RD. This can be used to compute addresses for JALR instructions.
-fn auipc(c: &mut CpuState, _memory: &mut Memory, instruction: u32) { 
+fn auipc(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     let destination_register = decoder::rd(instruction);
     let immediate = decoder::u_type_immediate(instruction);
-    c.registers.set(destination_register, c.registers.pc + (immediate as u32));
+    c.registers
+        .set(destination_register, c.registers.pc + (immediate as u32));
     c.registers.pc += INSTRUCTION_SIZE;
 }
 
@@ -108,10 +151,11 @@ impl InstructionTable {
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
         match decoder::opcode(instruction) {
+            opcodes::OP => op(cpu_state, memory, instruction),
             opcodes::OP_IMM => op_imm(cpu_state, memory, instruction),
             opcodes::LUI => lui(cpu_state, memory, instruction),
             opcodes::AUIPC => auipc(cpu_state, memory, instruction),
-            _ => trap_opcode(cpu_state, memory, instruction)
+            _ => trap_opcode(cpu_state, memory, instruction),
         }
     }
 }
@@ -190,7 +234,6 @@ mod test {
         assert_eq!(cpu.registers.get(2), 2);
         assert_eq!(cpu.registers.get(3), 6);
     }
-
 
     #[test]
     fn execute_addi_overflow() {
