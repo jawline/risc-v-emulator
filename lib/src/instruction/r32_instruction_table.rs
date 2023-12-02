@@ -168,6 +168,36 @@ fn auipc(op: &mut OpArgs) {
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
+// JAL (jump and link) adds the signed J-immediate value to the current PC after storing the
+// current PC + 4 in the destination register.
+fn jal(op: &mut OpArgs) {
+    let destination_register = op.rd();
+    let imm_value = op.j_imm();
+    let new_pc = ((op.state.registers.pc as i32) + imm_value) as u32;
+
+    op.state
+        .registers
+        .set(destination_register, op.state.registers.pc + 4);
+    op.state.registers.pc = new_pc;
+}
+
+/// JALR (Indirect jump) adds a 12-bit signed immediate to whatever is at rs1, sets the LSB of that
+/// result to zero (e.g, result = result & (!1)), and finally sets the PC to this new result.
+/// rd is set to the original PC + 4 (the start of the next instruction). Regiser 0 can be used to
+/// discard the result.
+fn jalr(op: &mut OpArgs) {
+    let source_register = op.rs1();
+    let destination_register = op.rd();
+    let source_value = op.state.registers.geti(source_register);
+    let imm_value = op.i_imm();
+    let new_pc = (source_value + imm_value) as u32;
+    let new_pc = new_pc & !1;
+    op.state
+        .registers
+        .set(destination_register, op.state.registers.pc + 4);
+    op.state.registers.pc = new_pc;
+}
+
 pub struct InstructionTable {}
 
 impl InstructionTable {
@@ -185,6 +215,8 @@ impl InstructionTable {
         match decoder::opcode(instruction) {
             opcodes::OP => op(&mut op_arg),
             opcodes::OP_IMM => op_imm(&mut op_arg),
+            opcodes::JAL => jal(&mut op_arg),
+            opcodes::JALR => jalr(&mut op_arg),
             opcodes::LUI => lui(&mut op_arg),
             opcodes::AUIPC => auipc(&mut op_arg),
             _ => trap_opcode(&mut op_arg),
@@ -440,6 +472,24 @@ mod test {
 
     #[test]
     fn execute_auipc() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_jal() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_jalr() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_jalr_result_is_misaligned() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
