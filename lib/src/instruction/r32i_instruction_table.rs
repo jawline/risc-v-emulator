@@ -20,41 +20,36 @@ fn trap_opcode(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     );
 }
 
+fn apply_op_imm<F: Fn(i32, i32) -> i32>(c: &mut CpuState, instruction: u32, f: F) {
+    let source_register = decoder::rs1(instruction);
+    let destination_register = decoder::rd(instruction);
+    let immediate = decoder::i_type_immediate_32(instruction);
+    let source_value = c.registers.get(source_register) as i32;
+    let new_value = f(source_value, immediate);
+
+    c.registers.set(destination_register, new_value as u32);
+}
+
 fn op_imm(c: &mut CpuState, _memory: &mut Memory, instruction: u32) {
     match decoder::funct3(instruction) {
-        funct3::ADDI => {
-            let source_register = decoder::rs1(instruction);
-            let destination_register = decoder::rd(instruction);
-
-            let immediate = decoder::i_type_immediate_32(instruction);
-            let source_value = c.registers.get(source_register) as i32;
-            let new_value = source_value + immediate;
-
-            c.registers.set(destination_register, new_value as u32);
+        funct3::ADDI => apply_op_imm(c, instruction, |r, i| r + i),
+        funct3::SLTI => apply_op_imm(c, instruction, |r, i| if r < i { 1 } else { 0 }),
+        funct3::SLTIU =>
+        // This is the same as SLTI but the immediate is sign extended and then treated as an
+        // unsigned and the comparison is done as an unsigned.
+        {
+            apply_op_imm(c, instruction, |r, i| {
+                let (r, i) = (r as u32, i as u32);
+                if r < i {
+                    1
+                } else {
+                    0
+                }
+            })
         }
-        funct3::SLTI => {
-            let source_register = decoder::rs1(instruction);
-            let destination_register = decoder::rd(instruction);
-
-            let immediate = decoder::i_type_immediate_32(instruction);
-            let source_value = c.registers.get(source_register) as i32;
-
-            let new_value = if source_value < immediate { 1 } else { 0 };
-            c.registers.set(destination_register, new_value as u32);
-        }
-        funct3::SLTIU => {
-            // This is the same as SLTI but the immediate is sign extended and then treated as an
-            // unsigned and the comparison is done as an unsigned.
-
-            let source_register = decoder::rs1(instruction);
-            let destination_register = decoder::rd(instruction);
-
-            let immediate = decoder::i_type_immediate_32(instruction) as u32;
-            let source_value = c.registers.get(source_register);
-
-            let new_value = if source_value < immediate { 1 } else { 0 };
-            c.registers.set(destination_register, new_value as u32);
-        }
+        funct3::ANDI => apply_op_imm(c, instruction, |r, i| r & i),
+        funct3::ORI => apply_op_imm(c, instruction, |r, i| r | i),
+        funct3::XORI => apply_op_imm(c, instruction, |r, i| r ^ i),
         _ => panic!("funct3 parameter should not be > 0b111"),
     };
 
@@ -234,4 +229,23 @@ mod test {
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 20);
     }
+
+    #[test]
+    fn execute_andi() {
+        let (mut cpu, mut memory, table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_ori() {
+        let (mut cpu, mut memory, table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_xori() {
+        let (mut cpu, mut memory, table) = test_args();
+        unimplemented!();
+    }
+
 }
