@@ -291,8 +291,8 @@ fn auipc(op: &mut OpArgs) {
         destination_register,
         op.state.registers.pc + (immediate as u32),
     );
-    panic!("BUG: TODO: Handle unaligned jumps");
     op.state.registers.pc += INSTRUCTION_SIZE;
+    panic!("BUG: TODO: Handle unaligned jumps");
 }
 
 /// JAL (jump and link) adds the signed J-immediate value to the current PC after storing the
@@ -305,8 +305,8 @@ fn jal(op: &mut OpArgs) {
     op.state
         .registers
         .set(destination_register, op.state.registers.pc + 4);
-    panic!("BUG: TODO: Handle unaligned jumps");
     op.state.registers.pc = new_pc;
+    panic!("BUG: TODO: Handle unaligned jumps");
 }
 
 /// JALR (Indirect jump) adds a 12-bit signed immediate to whatever is at rs1, sets the LSB of that
@@ -324,6 +324,12 @@ fn jalr(op: &mut OpArgs) {
         .registers
         .set(destination_register, op.state.registers.pc + 4);
     op.state.registers.pc = new_pc;
+}
+
+fn fence(op: &mut OpArgs) {
+    // Fence is implement as a no-op as we only execute a single hart and do not pre-cache
+    // instruction implementations.
+    op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
 pub struct InstructionTable {}
@@ -350,6 +356,7 @@ impl InstructionTable {
             opcodes::BRANCH => branch(op_arg),
             opcodes::LOAD => load(op_arg),
             opcodes::STORE => store(op_arg),
+            opcodes::FENCE => fence(op_arg),
             _ => trap_opcode(op_arg),
         }
     }
@@ -705,6 +712,18 @@ mod test {
 
     #[test]
     fn execute_sw() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_fence() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_fence_i() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
