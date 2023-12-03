@@ -25,3 +25,12 @@ pub mod op {
     /// Depending on the upper 7 bits of the imm this is either SRAI or SRLI
     pub const SRL_OR_SRA: u8 = 0b101;
 }
+
+pub mod branch {
+    pub const BEQ: u8 = 0b000;
+    pub const BNE: u8 = 0b001;
+    pub const BLT: u8 = 0b100;
+    pub const BGE: u8 = 0b101;
+    pub const BLTU: u8 = 0b110;
+    pub const BGEU: u8 = 0b111;
+}

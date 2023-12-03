@@ -13,6 +13,10 @@ impl<'a, 'b> OpArgs<'a, 'b> {
         decoder::i_type_immediate_32(self.instruction)
     }
 
+    pub fn b_imm(&self) -> i32 {
+        decoder::b_type_immediate_32(self.instruction)
+    }
+
     pub fn u_imm(&self) -> i32 {
         decoder::u_type_immediate(self.instruction)
     }

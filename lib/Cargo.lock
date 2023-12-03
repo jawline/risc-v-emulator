@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "lib"
+name = "riscv_lib"
 version = "0.1.0"

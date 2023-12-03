@@ -1,6 +1,6 @@
 use super::{
     decoder,
-    funct3::{op, op_imm},
+    funct3::{branch, op, op_imm},
     util::C_5_BITS,
 };
 use crate::instruction::{op_args::OpArgs, opcodes};
@@ -92,6 +92,29 @@ fn apply_op_imm_funct7<F1: Fn(u32, u32) -> u32, F2: Fn(u32, u32) -> u32>(
     })
 }
 
+/// Apply the branch instruction. All branch instructions take 2 registers and either advance
+/// the PC normally or jump to PC + a b-type coded immediate depending on the result.
+fn apply_branch<F: Fn(i32, i32) -> bool>(op: &mut OpArgs, f: F) {
+    let source_one = op.rs1();
+    let source_two = op.rs2();
+    let offset = op.b_imm();
+
+    if f(
+        op.state.registers.geti(source_one),
+        op.state.registers.geti(source_two),
+    ) {
+        op.state.registers.pc = ((op.state.registers.pc as i32) + offset) as u32;
+    } else {
+        op.state.registers.pc += INSTRUCTION_SIZE;
+    }
+}
+
+/// Identical to apply_branch but comparisons are done on the unsigned interpretation of the
+/// registers
+fn apply_branch_unsigned<F: Fn(u32, u32) -> bool>(op: &mut OpArgs, f: F) {
+    apply_branch(op, |r1, r2| f(r1 as u32, r2 as u32))
+}
+
 /// A series of instructions that operate on a source register and an I-type (12-bit) immediate,
 /// placing the result in rd.
 fn op_imm(op: &mut OpArgs) {
@@ -140,6 +163,24 @@ fn op(op: &mut OpArgs) {
             |r1, r2| r1 >> (r2 as u32),
         ),
         8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
+    };
+
+    op.state.registers.pc += INSTRUCTION_SIZE;
+}
+
+/// A series of instructions that operate on two source registers, jumping to PC + a B-type immediate
+/// offset if a condition is met, otherwise advancing the program counter normally.
+fn branch(op: &mut OpArgs) {
+    match op.funct3() {
+        branch::BEQ => apply_branch(op, |r1, r2| r1 == r2),
+        branch::BNE => apply_branch(op, |r1, r2| r1 != r2),
+        branch::BLT => apply_branch(op, |r1, r2| r1 < r2),
+        branch::BGE => apply_branch(op, |r1, r2| r1 >= r2),
+        branch::BLTU => apply_branch_unsigned(op, |r1, r2| r1 < r2),
+        branch::BGEU => apply_branch_unsigned(op, |r1, r2| r1 >= r2),
+        2 | 3 | 8..=u8::MAX => {
+            panic!("funct3 parameter should not be > 0b111. This is an emulation bug.")
+        }
     };
 
     op.state.registers.pc += INSTRUCTION_SIZE;
@@ -206,20 +247,22 @@ impl InstructionTable {
     }
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
-        let mut op_arg = OpArgs {
+
+        let op_arg = &mut OpArgs {
             state: cpu_state,
             memory: memory,
             instruction: instruction,
         };
 
         match decoder::opcode(instruction) {
-            opcodes::OP => op(&mut op_arg),
-            opcodes::OP_IMM => op_imm(&mut op_arg),
-            opcodes::JAL => jal(&mut op_arg),
-            opcodes::JALR => jalr(&mut op_arg),
-            opcodes::LUI => lui(&mut op_arg),
-            opcodes::AUIPC => auipc(&mut op_arg),
-            _ => trap_opcode(&mut op_arg),
+            opcodes::OP => op(op_arg),
+            opcodes::OP_IMM => op_imm(op_arg),
+            opcodes::JAL => jal(op_arg),
+            opcodes::JALR => jalr(op_arg),
+            opcodes::LUI => lui(op_arg),
+            opcodes::AUIPC => auipc(op_arg),
+            opcodes::BRANCH => branch(op_arg),
+            _ => trap_opcode(op_arg),
         }
     }
 }
@@ -490,6 +533,42 @@ mod test {
 
     #[test]
     fn execute_jalr_result_is_misaligned() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_beq() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_bne() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_blt() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_bge() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_bltu() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_bgeu() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
