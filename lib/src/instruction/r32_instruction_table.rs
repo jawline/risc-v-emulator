@@ -291,6 +291,7 @@ fn auipc(op: &mut OpArgs) {
         destination_register,
         op.state.registers.pc + (immediate as u32),
     );
+    panic!("BUG: TODO: Handle unaligned jumps");
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
@@ -304,6 +305,7 @@ fn jal(op: &mut OpArgs) {
     op.state
         .registers
         .set(destination_register, op.state.registers.pc + 4);
+    panic!("BUG: TODO: Handle unaligned jumps");
     op.state.registers.pc = new_pc;
 }
 
