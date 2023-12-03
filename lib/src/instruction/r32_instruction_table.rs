@@ -248,27 +248,27 @@ fn load(op: &mut OpArgs) {
 /// Apply the store function. Stores place whatever is in rs2 into the address [rs1 + S-type signed
 /// immediate]. In this function we compute the destination address and grab the value in the
 /// source register, then hand off to a user supplied f to apply the funct3 behaviour.
-fn apply_store<F: Fn(u32, u32, &mut Memory)>(op: &mut OpArgs, f: F) {
+fn apply_store<F: Fn(u32, u32, &mut Memory) -> Result<(), MemoryError>>(op: &mut OpArgs, f: F) {
     let destination = op.rs1();
     let offset = op.s_imm();
     let destination_address = (op.state.registers.geti(destination) + offset) as u32;
     let source_value = op.state.registers.get(op.rs2());
-    f(destination_address, source_value, op.memory);
-    op.state.registers.pc += INSTRUCTION_SIZE;
+    match f(destination_address, source_value, op.memory) {
+        Ok(()) => op.state.registers.pc += INSTRUCTION_SIZE,
+        Err(_) => trap_memory_access(destination_address, op),
+    }
 }
 
 fn store(op: &mut OpArgs) {
-    // TODO: Handle illegal memory access exceptions gracefully. We should at least print a useful
-    // error with the CPU state before crashing rather than just unwrapping.
     match op.funct3() {
         store::SB => apply_store(op, |destination, val, memory| {
-            memory.set8(destination as usize, val as u8).unwrap()
+            memory.set8(destination as usize, val as u8)
         }),
         store::SH => apply_store(op, |destination, val, memory| {
-            memory.set16(destination as usize, val as u16).unwrap()
+            memory.set16(destination as usize, val as u16)
         }),
         store::SW => apply_store(op, |destination, val, memory| {
-            memory.set32(destination as usize, val as u32).unwrap()
+            memory.set32(destination as usize, val as u32)
         }),
         3..=u8::MAX => {
             panic!("funct3 parameter should not be > 0b011. This could be an emulation bug or a bug in the opcode.")
