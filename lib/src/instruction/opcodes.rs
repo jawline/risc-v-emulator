@@ -7,3 +7,5 @@ pub const JALR: usize = construct_opcode(0b001, 0b11);
 pub const LUI: usize = construct_opcode(0b101, 0b01);
 pub const AUIPC: usize = construct_opcode(0b101, 0b00);
 pub const BRANCH: usize = construct_opcode(0b000, 0b11);
+pub const LOAD: usize = construct_opcode(0b000, 0b00);
+pub const STORE: usize = construct_opcode(0b000, 0b01);

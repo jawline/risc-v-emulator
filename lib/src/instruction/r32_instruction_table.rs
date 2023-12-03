@@ -1,9 +1,10 @@
 use super::{
     decoder,
-    funct3::{branch, op, op_imm},
+    funct3::{branch, load, op, op_imm, store},
+    op_args::OpArgs,
+    opcodes,
     util::C_5_BITS,
 };
-use crate::instruction::{op_args::OpArgs, opcodes};
 use crate::memory::Memory;
 
 const INSTRUCTION_SIZE: u32 = 4;
@@ -186,6 +187,19 @@ fn branch(op: &mut OpArgs) {
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
+fn load(op: &mut OpArgs) {
+    match op.funct3() {
+        load::LB => unimplemented!(),
+        load::LH => unimplemented!(),
+        load::LW => unimplemented!(),
+        load::LBU => unimplemented!(),
+        load::LHU => unimplemented!(),
+        3 | 6..=u8::MAX => {
+            panic!("funct3 parameter should not be 0b011 or > 0b101. This could be an emulation bug or a bug in the opcode.")
+        }
+    }
+}
+
 /// Load upper immediate (Places a u-type immediate containing the upper 20 bits of a 32-bit value
 /// into rd. All other bits are set to zero)
 fn lui(op: &mut OpArgs) {
@@ -247,7 +261,6 @@ impl InstructionTable {
     }
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
-
         let op_arg = &mut OpArgs {
             state: cpu_state,
             memory: memory,
@@ -262,6 +275,7 @@ impl InstructionTable {
             opcodes::LUI => lui(op_arg),
             opcodes::AUIPC => auipc(op_arg),
             opcodes::BRANCH => branch(op_arg),
+            opcodes::LOAD => load(op_arg),
             _ => trap_opcode(op_arg),
         }
     }
@@ -569,6 +583,54 @@ mod test {
 
     #[test]
     fn execute_bgeu() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_lb() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_lh() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_lw() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_lbu() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_lhu() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sb() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sh() {
+        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sw() {
         let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }

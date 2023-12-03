@@ -34,3 +34,17 @@ pub mod branch {
     pub const BLTU: u8 = 0b110;
     pub const BGEU: u8 = 0b111;
 }
+
+pub mod load {
+    pub const LB: u8 = 0b000;
+    pub const LH: u8 = 0b001;
+    pub const LW: u8 = 0b010;
+    pub const LBU: u8 = 0b100;
+    pub const LHU: u8 = 0b101;
+}
+
+pub mod store {
+    pub const SB: u8 = 0b000;
+    pub const SH: u8 = 0b001;
+    pub const SW: u8 = 0b010;
+}
