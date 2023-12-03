@@ -1,3 +1,4 @@
+use std::time::SystemTime;
 use super::{
     decoder,
     funct3::{branch, load, op, op_imm, store},
@@ -340,6 +341,7 @@ impl InstructionTable {
     }
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
+        cpu_state.registers.rdtime = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
         let op_arg = &mut OpArgs {
             state: cpu_state,
             memory: memory,
@@ -359,6 +361,9 @@ impl InstructionTable {
             opcodes::FENCE => fence(op_arg),
             _ => trap_opcode(op_arg),
         }
+
+        cpu_state.registers.rdcycle += 1;
+        cpu_state.registers.rdinstret += 1;
     }
 }
 
