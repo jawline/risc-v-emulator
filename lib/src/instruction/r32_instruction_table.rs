@@ -25,8 +25,9 @@ fn trap_opcode(op: &OpArgs) {
 }
 
 fn trap_memory_access(address: u32, op: &OpArgs) {
+    let instruction = op.instruction;
     let state = &op.state;
-    panic!("Illegal memory access when accessing address {address:032b} {state:?}")
+    panic!("Illegal memory access when accessing address {instruction:032b} {address:032b} {state:?}")
 }
 
 fn apply_op<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
