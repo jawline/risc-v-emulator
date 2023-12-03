@@ -5,23 +5,28 @@ use super::{
     opcodes,
     util::C_5_BITS,
 };
-use crate::memory::Memory;
+use crate::memory::{Memory, MemoryError};
 
 const INSTRUCTION_SIZE: u32 = 4;
 const FUNCT7_SWITCH: u8 = 0b0100000;
 
 type CpuState = crate::cpu_r32i::CpuState<u32, 32>;
 
-fn panic_dump_state(reason: &str, instruction: u32, c: &mut CpuState) {
+fn panic_dump_state(reason: &str, instruction: u32, c: &CpuState) {
     panic!("{reason} {instruction:032b} {c:?}")
 }
 
-fn trap_opcode(op: &mut OpArgs) {
+fn trap_opcode(op: &OpArgs) {
     panic_dump_state(
         "Trap handler called. The emulated CPU encountered an illegal opcode",
         op.instruction,
         op.state,
     );
+}
+
+fn trap_memory_access(address: u32, op: &OpArgs) {
+    let state = &op.state;
+    panic!("Illegal memory access when accessing address {address:032b} {state:?}")
 }
 
 fn apply_op<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
@@ -189,54 +194,56 @@ fn branch(op: &mut OpArgs) {
 
 /// Apply the load function. This computes the address of the load and then passes the addres to a
 /// custom F that applies the funct3 specific logic. The return is then written to rd.
-fn apply_load<F: Fn(u32, &Memory) -> i32>(op: &mut OpArgs, f: F) {
+fn apply_load<F: Fn(u32, &Memory) -> Result<i32, MemoryError>>(op: &mut OpArgs, f: F) {
     let source = op.rs1();
     let offset = op.i_imm();
     let destination = op.rd();
     let source_address = (op.state.registers.geti(source) + offset) as u32;
-    op.state
-        .registers
-        .seti(destination, f(source_address, op.memory));
-    op.state.registers.pc += INSTRUCTION_SIZE;
+    let result = f(source_address, op.memory);
+
+    match result {
+        Ok(result) => {
+            op.state.registers.seti(destination, result);
+            op.state.registers.pc += INSTRUCTION_SIZE
+        }
+        Err(_) => trap_memory_access(source_address, op),
+    }
 }
 
-fn apply_load_unsigned<F: Fn(u32, &Memory) -> u32>(op: &mut OpArgs, f: F) {
-    apply_load(op, |address, memory| f(address, memory) as i32)
+fn apply_load_unsigned<F: Fn(u32, &Memory) -> Result<u32, MemoryError>>(op: &mut OpArgs, f: F) {
+    apply_load(op, |address, memory| Ok(f(address, memory)? as i32))
 }
 
 /// Loads copy the value at (rs1 + S-type signed immediate) to rd. The standard loads are
 /// sign-extended while the LBU and LHU variants are not.
 fn load(op: &mut OpArgs) {
-    // TODO: Handle illegal memory access exceptions gracefully. Currently this kills the emulator
-    // with no useful debugging information.
     match op.funct3() {
         load::LB => apply_load(op, |address, memory| {
-            let raw_memory = memory.get8(address as usize).unwrap() as i8;
+            let raw_memory = memory.get8(address as usize)? as i8;
             // Rust will sign-extend casts from signed types
             let sign_extended = raw_memory as i32;
-            sign_extended
+            Ok(sign_extended)
         }),
         load::LH => apply_load(op, |address, memory| {
-            let raw_memory = memory.get16(address as usize).unwrap() as i16;
+            let raw_memory = memory.get16(address as usize)? as i16;
             // Rust will sign-extend casts from signed types
             let sign_extended = raw_memory as i32;
-            sign_extended
+            Ok(sign_extended)
         }),
         load::LW => apply_load(op, |address, memory| {
-            memory.get32(address as usize).unwrap() as i32
+            Ok(memory.get32(address as usize)? as i32)
         }),
         load::LBU => apply_load_unsigned(op, |address, memory| {
-            memory.get8(address as usize).unwrap() as u32
+            Ok(memory.get8(address as usize)? as u32)
         }),
         load::LHU => apply_load_unsigned(op, |address, memory| {
-            memory.get16(address as usize).unwrap() as u32
+            Ok(memory.get16(address as usize)? as u32)
         }),
         3 | 6..=u8::MAX => {
             panic!("funct3 parameter should not be 0b011 or > 0b101. This could be an emulation bug or a bug in the opcode.")
         }
     }
 }
-
 
 /// Apply the store function. Stores place whatever is in rs2 into the address [rs1 + S-type signed
 /// immediate]. In this function we compute the destination address and grab the value in the
@@ -254,9 +261,15 @@ fn store(op: &mut OpArgs) {
     // TODO: Handle illegal memory access exceptions gracefully. We should at least print a useful
     // error with the CPU state before crashing rather than just unwrapping.
     match op.funct3() {
-        store::SB => apply_store(op, |destination, val, memory| memory.set8(destination as usize, val as u8).unwrap()),
-        store::SH => apply_store(op, |destination, val, memory| memory.set16(destination as usize, val as u16).unwrap()),
-        store::SW => apply_store(op, |destination, val, memory| memory.set32(destination as usize, val as u32).unwrap()),
+        store::SB => apply_store(op, |destination, val, memory| {
+            memory.set8(destination as usize, val as u8).unwrap()
+        }),
+        store::SH => apply_store(op, |destination, val, memory| {
+            memory.set16(destination as usize, val as u16).unwrap()
+        }),
+        store::SW => apply_store(op, |destination, val, memory| {
+            memory.set32(destination as usize, val as u32).unwrap()
+        }),
         3..=u8::MAX => {
             panic!("funct3 parameter should not be > 0b011. This could be an emulation bug or a bug in the opcode.")
         }
