@@ -12,22 +12,16 @@ const FUNCT7_SWITCH: u8 = 0b0100000;
 
 type CpuState = crate::cpu_r32i::CpuState<u32, 32>;
 
-fn panic_dump_state(reason: &str, instruction: u32, c: &CpuState) {
-    panic!("{reason} {instruction:032b} {c:?}")
-}
-
 fn trap_opcode(op: &OpArgs) {
-    panic_dump_state(
-        "Trap handler called. The emulated CPU encountered an illegal opcode",
-        op.instruction,
-        op.state,
-    );
+    let instruction = op.instruction;
+    let state = &op.state;
+    panic!("Illegal opcode trap when handling instruction {instruction:032b} {state:?}")
 }
 
 fn trap_memory_access(address: u32, op: &OpArgs) {
     let instruction = op.instruction;
     let state = &op.state;
-    panic!("Illegal memory access when accessing address {instruction:032b} {address:032b} {state:?}")
+    panic!("Illegal memory access trap when accessing address {instruction:032b} {address:032b} {state:?}")
 }
 
 fn apply_op<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
