@@ -35,6 +35,25 @@ impl Memory {
         self.set8(addr + 1, bytes[1])?;
         Ok(())
     }
+
+    pub fn get32(&self, addr: usize) -> Result<u32, MemoryError> {
+        let bytes = [
+            self.get8(addr)?,
+            self.get8(addr + 1)?,
+            self.get8(addr + 2)?,
+            self.get8(addr + 3)?,
+        ];
+        Ok(u32::from_le_bytes(bytes))
+    }
+
+    pub fn set32(&mut self, addr: usize, val: u32) -> Result<(), MemoryError> {
+        let bytes = val.to_le_bytes();
+        self.set8(addr, bytes[0])?;
+        self.set8(addr + 1, bytes[1])?;
+        self.set8(addr + 2, bytes[2])?;
+        self.set8(addr + 3, bytes[3])?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -136,5 +155,15 @@ mod test {
         } else {
             panic!("expected read to fail");
         }
+    }
+
+    #[test]
+    fn simple_32_bit_memory_tests() {
+        unimplemented!();
+    }
+
+    #[test]
+    fn simple_32_bit_memory_boundry_tests() {
+        unimplemented!();
     }
 }

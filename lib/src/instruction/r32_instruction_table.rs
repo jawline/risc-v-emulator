@@ -93,29 +93,6 @@ fn apply_op_imm_funct7<F1: Fn(u32, u32) -> u32, F2: Fn(u32, u32) -> u32>(
     })
 }
 
-/// Apply the branch instruction. All branch instructions take 2 registers and either advance
-/// the PC normally or jump to PC + a b-type coded immediate depending on the result.
-fn apply_branch<F: Fn(i32, i32) -> bool>(op: &mut OpArgs, f: F) {
-    let source_one = op.rs1();
-    let source_two = op.rs2();
-    let offset = op.b_imm();
-
-    if f(
-        op.state.registers.geti(source_one),
-        op.state.registers.geti(source_two),
-    ) {
-        op.state.registers.pc = ((op.state.registers.pc as i32) + offset) as u32;
-    } else {
-        op.state.registers.pc += INSTRUCTION_SIZE;
-    }
-}
-
-/// Identical to apply_branch but comparisons are done on the unsigned interpretation of the
-/// registers
-fn apply_branch_unsigned<F: Fn(u32, u32) -> bool>(op: &mut OpArgs, f: F) {
-    apply_branch(op, |r1, r2| f(r1 as u32, r2 as u32))
-}
-
 /// A series of instructions that operate on a source register and an I-type (12-bit) immediate,
 /// placing the result in rd.
 fn op_imm(op: &mut OpArgs) {
@@ -169,6 +146,29 @@ fn op(op: &mut OpArgs) {
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
+/// Apply the branch instruction. All branch instructions take 2 registers and either advance
+/// the PC normally or jump to PC + a b-type coded immediate depending on the result.
+fn apply_branch<F: Fn(i32, i32) -> bool>(op: &mut OpArgs, f: F) {
+    let source_one = op.rs1();
+    let source_two = op.rs2();
+    let offset = op.b_imm();
+
+    if f(
+        op.state.registers.geti(source_one),
+        op.state.registers.geti(source_two),
+    ) {
+        op.state.registers.pc = ((op.state.registers.pc as i32) + offset) as u32;
+    } else {
+        op.state.registers.pc += INSTRUCTION_SIZE;
+    }
+}
+
+/// Identical to apply_branch but comparisons are done on the unsigned interpretation of the
+/// registers
+fn apply_branch_unsigned<F: Fn(u32, u32) -> bool>(op: &mut OpArgs, f: F) {
+    apply_branch(op, |r1, r2| f(r1 as u32, r2 as u32))
+}
+
 /// A series of instructions that operate on two source registers, jumping to PC + a B-type immediate
 /// offset if a condition is met, otherwise advancing the program counter normally.
 fn branch(op: &mut OpArgs) {
@@ -187,15 +187,63 @@ fn branch(op: &mut OpArgs) {
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
+/// Apply the load function. This computes the address of the load and then passes the addres to a
+/// custom F that applies the funct3 specific logic. The return is then written to rd.
+fn apply_load<F: Fn(u32, &Memory) -> i32>(op: &mut OpArgs, f: F) {
+    let source = op.rs1();
+    let offset = op.i_imm();
+    let destination = op.rd();
+    let source_address = (op.state.registers.geti(source) + offset) as u32;
+    op.state
+        .registers
+        .seti(destination, f(source_address, op.memory));
+    op.state.registers.pc += INSTRUCTION_SIZE;
+}
+
+fn apply_load_unsigned<F: Fn(u32, &Memory) -> u32>(op: &mut OpArgs, f: F) {
+    apply_load(op, |address, memory| f(address, memory) as i32)
+}
+
+/// Loads copy the value at (rs1 + S-type signed immediate) to rd. The standard loads are
+/// sign-extended while the LBU and LHU variants are not.
 fn load(op: &mut OpArgs) {
+    // TODO: Handle illegal memory access exceptions gracefully. Currently this kills the emulator
+    // with no useful debugging information.
     match op.funct3() {
-        load::LB => unimplemented!(),
-        load::LH => unimplemented!(),
-        load::LW => unimplemented!(),
-        load::LBU => unimplemented!(),
-        load::LHU => unimplemented!(),
+        load::LB => apply_load(op, |address, memory| {
+            let raw_memory = memory.get8(address as usize).unwrap() as i8;
+            // Rust will sign-extend casts from signed types
+            let sign_extended = raw_memory as i32;
+            sign_extended
+        }),
+        load::LH => apply_load(op, |address, memory| {
+            let raw_memory = memory.get16(address as usize).unwrap() as i16;
+            // Rust will sign-extend casts from signed types
+            let sign_extended = raw_memory as i32;
+            sign_extended
+        }),
+        load::LW => apply_load(op, |address, memory| {
+            memory.get32(address as usize).unwrap() as i32
+        }),
+        load::LBU => apply_load_unsigned(op, |address, memory| {
+            memory.get8(address as usize).unwrap() as u32
+        }),
+        load::LHU => apply_load_unsigned(op, |address, memory| {
+            memory.get16(address as usize).unwrap() as u32
+        }),
         3 | 6..=u8::MAX => {
             panic!("funct3 parameter should not be 0b011 or > 0b101. This could be an emulation bug or a bug in the opcode.")
+        }
+    }
+}
+
+fn store(op: &mut OpArgs) {
+    match op.funct3() {
+        store::SB => unimplemented!(),
+        store::SH => unimplemented!(),
+        store::SW => unimplemented!(),
+        3..=u8::MAX => {
+            panic!("funct3 parameter should not be > 0b011. This could be an emulation bug or a bug in the opcode.")
         }
     }
 }
@@ -276,6 +324,7 @@ impl InstructionTable {
             opcodes::AUIPC => auipc(op_arg),
             opcodes::BRANCH => branch(op_arg),
             opcodes::LOAD => load(op_arg),
+            opcodes::STORE => store(op_arg),
             _ => trap_opcode(op_arg),
         }
     }

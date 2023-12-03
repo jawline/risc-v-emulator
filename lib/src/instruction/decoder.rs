@@ -46,7 +46,7 @@ pub const fn u_type_immediate(instruction: u32) -> i32 {
 }
 
 /// Sign extend an input to 32 bits given a sign bit and the unsigned portion.
-const fn sign_extend_32(raw_value: u32, bits: usize, sign_bit: bool) -> i32 {
+pub const fn sign_extend_32(raw_value: u32, bits: usize, sign_bit: bool) -> i32 {
     // This mask will be all 1s for the bits in raw_values range.
     let bit_mask = (1 << bits) - 1;
 
