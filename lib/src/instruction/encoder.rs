@@ -8,12 +8,13 @@ const fn i_type_opcode(
     funct3: u8,
     imm: u16,
 ) -> u32 {
-    if destination_register > 32 || source_register > 32 || funct3 > 0b111 || opcode > 0b111111 {
-        panic!("destination or source > 32, cannot construct instruction");
-    }
-
-    if imm > 0b1111_1111_1111 {
-        panic!("immediate exceeds 12 bits");
+    if destination_register > 32
+        || source_register > 32
+        || funct3 > 0b111
+        || opcode > 0b111111
+        || imm > 0b1111_1111_1111
+    {
+        panic!("illegal operand");
     }
 
     let destination_register = destination_register as u32;
@@ -26,12 +27,48 @@ const fn i_type_opcode(
         | (imm as u32) << 20
 }
 
+const fn op_opcode(
+    opcode: u8,
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+    funct3: u8,
+    funct7: u8,
+) -> u32 {
+    if destination_register > 32
+        || source_register1 > 32
+        || source_register2 > 32
+        || funct3 > 0b111
+        || funct7 > 0b1111111
+    {
+        panic!("illegal operand");
+    }
+
+    let destination_register = destination_register as u32;
+    let source_register1 = source_register1 as u32;
+    let source_register2 = source_register2 as u32;
+
+    (OP_IMM as u32)
+        | (destination_register << 7)
+        | ((funct3 as u32) << 12)
+        | (source_register1 << 15)
+        | (source_register2 << 20)
+        | ((funct7 as u32) << 25)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
         source_register: usize,
         funct3: u8,
         immediate: u16,
+    },
+    Op {
+        destination_register: usize,
+        source_register1: usize,
+        source_register2: usize,
+        funct3: u8,
+        funct7: u8,
     },
 }
 
@@ -49,6 +86,20 @@ impl Instruction {
                 source_register,
                 funct3,
                 immediate,
+            ),
+            &Instruction::Op {
+                destination_register,
+                source_register1,
+                source_register2,
+                funct3,
+                funct7,
+            } => op_opcode(
+                OP_IMM as u8,
+                destination_register,
+                source_register1,
+                source_register2,
+                funct3,
+                funct7,
             ),
         }
     }
