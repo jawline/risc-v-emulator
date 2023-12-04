@@ -372,7 +372,7 @@ impl InstructionTable {
 
 #[cfg(test)]
 mod test {
-    use super::super::encoder;
+    use super::super::encoder::{self, Instruction};
     use super::*;
 
     const fn pack_negative_into_12b(val: i16) -> u16 {
@@ -388,61 +388,88 @@ mod test {
         let _table = InstructionTable::new();
     }
 
-    fn test_args() -> (CpuState, Memory, InstructionTable) {
-        (CpuState::new(), Memory::new(4096), InstructionTable::new())
+    struct TestEnvironment {
+        state: CpuState,
+        memory: Memory,
+        tbl: InstructionTable,
+        last_pc: u32,
+    }
+
+    impl TestEnvironment {
+        fn new() -> Self {
+            TestEnvironment {
+                state: CpuState::new(),
+                memory: Memory::new(4096),
+                tbl: InstructionTable::new(),
+                last_pc: 0,
+            }
+        }
+
+        fn step(&mut self, instruction: &Instruction) {
+            self.last_pc = self.state.registers.pc;
+            self.tbl
+                .step(&mut self.state, &mut self.memory, instruction.encode());
+        }
+
+        /// Step function that applys some default checks
+        fn dbg_step(&mut self, instruction: &Instruction) {
+            self.step(instruction);
+            assert_eq!(self.last_pc + 4, self.state.registers.pc);
+        }
+
+        fn set_register(&mut self, index: usize, value: i32) {
+            self.state.registers.seti(index, value);
+        }
+
+        fn expect_register(&self, index: usize, value: i32) {
+            assert_eq!(self.state.registers.geti(index), value)
+        }
+
+        fn expect_all_register(&self, value: i32) {
+            for i in 0..32 {
+                self.expect_register(i, value);
+            }
+        }
+    }
+
+    fn init() -> TestEnvironment {
+        TestEnvironment::new()
     }
 
     #[test]
     fn execute_no_op() {
-        let (mut cpu, mut memory, table) = test_args();
-        table.step(&mut cpu, &mut memory, encoder::no_op().encode());
-        assert_eq!(cpu.registers.pc, 4);
-        assert_eq!(cpu.registers.get(0), 0);
+        let mut test = init();
+        test.dbg_step(&encoder::no_op());
+        test.expect_all_register(0);
     }
 
     #[test]
     fn execute_addi() {
-        let (mut cpu, mut memory, table) = test_args();
+        let mut test = init();
 
-        // Test INC 1
-        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1).encode());
-        assert_eq!(cpu.registers.pc, 4);
-        assert_eq!(cpu.registers.get(1), 1);
-
-        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1).encode());
-        assert_eq!(cpu.registers.pc, 8);
-        assert_eq!(cpu.registers.get(1), 2);
-
-        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1).encode());
-        assert_eq!(cpu.registers.pc, 12);
-        assert_eq!(cpu.registers.get(1), 3);
+        // Test INCR r1
+        test.dbg_step(&encoder::addi(1, 1, 1));
+        test.expect_register(1, 1);
+        test.dbg_step(&encoder::addi(1, 1, 1));
+        test.expect_register(1, 2);
+        test.dbg_step(&encoder::addi(1, 1, 1));
+        test.expect_register(1, 3);
 
         // Test r2 = r1 + 1
-        table.step(&mut cpu, &mut memory, encoder::addi(2, 1, 1).encode());
-        assert_eq!(cpu.registers.pc, 16);
-        assert_eq!(cpu.registers.get(1), 3);
-        assert_eq!(cpu.registers.get(2), 4);
+        test.dbg_step(&encoder::addi(2, 1, 1));
+        test.expect_register(2, 4);
+        test.expect_register(1, 3);
 
         // Test r2 = r1 - 1
-        table.step(
-            &mut cpu,
-            &mut memory,
-            encoder::addi(2, 1, pack_negative_into_12b(-1)).encode(),
-        );
-        assert_eq!(cpu.registers.pc, 20);
-        assert_eq!(cpu.registers.get(1), 3);
-        assert_eq!(cpu.registers.get(2), 2);
+        test.dbg_step(&encoder::addi(2, 1, pack_negative_into_12b(-1)));
+        test.expect_register(1, 3);
+        test.expect_register(2, 2);
 
         // Test r3 = r2 + 4
-        table.step(
-            &mut cpu,
-            &mut memory,
-            encoder::addi(3, 2, pack_negative_into_12b(4)).encode(),
-        );
-        assert_eq!(cpu.registers.pc, 24);
-        assert_eq!(cpu.registers.get(1), 3);
-        assert_eq!(cpu.registers.get(2), 2);
-        assert_eq!(cpu.registers.get(3), 6);
+        test.dbg_step(&encoder::addi(3, 2, pack_negative_into_12b(4)));
+        test.expect_register(1, 3);
+        test.expect_register(2, 2);
+        test.expect_register(3, 6);
     }
 
     #[test]
@@ -452,287 +479,281 @@ mod test {
 
     #[test]
     fn execute_slti() {
-        let (mut cpu, mut memory, table) = test_args();
+        let mut test = init();
 
         // Test positive
-        cpu.registers.set(1, 5);
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 4).encode());
-        assert_eq!(cpu.registers.get(1), 5);
-        assert_eq!(cpu.registers.get(2), 0);
-        assert_eq!(cpu.registers.pc, 4);
+        test.set_register(1, 4);
+        test.dbg_step(&encoder::slti(2, 1, 4));
+        test.expect_register(1, 5);
+        test.expect_register(2, 0);
 
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 5).encode());
-        assert_eq!(cpu.registers.get(1), 5);
-        assert_eq!(cpu.registers.get(2), 0);
-        assert_eq!(cpu.registers.pc, 8);
+        test.dbg_step(&encoder::slti(2, 1, 5));
+        test.expect_register(1, 5);
+        test.expect_register(2, 0);
 
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 6).encode());
-        assert_eq!(cpu.registers.get(1), 5);
-        assert_eq!(cpu.registers.get(2), 1);
-        assert_eq!(cpu.registers.pc, 12);
+        test.dbg_step(&encoder::slti(2, 1, 6));
+        test.expect_register(1, 5);
+        test.expect_register(2, 1);
 
         // Test max int
-        cpu.registers.set(1, 2047 as u32);
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047).encode());
-        assert_eq!(cpu.registers.get(2), 0);
-        assert_eq!(cpu.registers.pc, 16);
+        test.set_register(1, 2047);
+        test.dbg_step(&encoder::slti(2, 1, 2047));
+        test.expect_register(2, 0);
 
-        cpu.registers.set(1, 2046 as u32);
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047).encode());
-        assert_eq!(cpu.registers.get(2), 1);
-        assert_eq!(cpu.registers.pc, 20);
+        test.set_register(1, 2046);
+        test.dbg_step(&encoder::slti(2, 1, 2047));
+        test.expect_register(2, 1);
 
         // Test negative
-        cpu.registers.set(1, (-5000i32) as u32);
-        table.step(
-            &mut cpu,
-            &mut memory,
-            encoder::slti(2, 1, pack_negative_into_12b(-2048)).encode(),
-        );
-        assert_eq!(cpu.registers.get(2), 1);
-        assert_eq!(cpu.registers.pc, 24);
+        test.set_register(1, -5000);
+        test.dbg_step(&encoder::slti(2, 1, pack_negative_into_12b(-2048)));
+        test.expect_register(2, 1);
 
-        cpu.registers.set(1, (-2000i32) as u32);
-        table.step(
-            &mut cpu,
-            &mut memory,
-            encoder::slti(2, 1, pack_negative_into_12b(-2048)).encode(),
-        );
-        assert_eq!(cpu.registers.get(2), 0);
-        assert_eq!(cpu.registers.pc, 28);
+        test.set_register(1, -2000);
+        test.dbg_step(&encoder::slti(2, 1, pack_negative_into_12b(-2048)));
+        test.expect_register(2, 0);
     }
 
     #[test]
     fn execute_sltiu() {
-        let (mut cpu, mut memory, table) = test_args();
+        let mut test = init();
 
-        cpu.registers.set(1, 0);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 0).encode());
-        assert_eq!(cpu.registers.get(2), 0);
-        assert_eq!(cpu.registers.pc, 4);
+        test.set_register(1, 0);
+        test.dbg_step(&encoder::sltiu(2, 1, 0));
+        test.expect_register(2, 0);
 
-        cpu.registers.set(1, 0);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1).encode());
-        assert_eq!(cpu.registers.get(2), 1);
-        assert_eq!(cpu.registers.pc, 8);
+        test.dbg_step(&encoder::sltiu(2, 1, 1));
+        test.expect_register(2, 1);
 
-        cpu.registers.set(1, 2);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1).encode());
-        assert_eq!(cpu.registers.get(2), 0);
-        assert_eq!(cpu.registers.pc, 12);
+        test.set_register(1, 2);
+        test.dbg_step(&encoder::sltiu(2, 1, 1));
+        test.expect_register(2, 0);
 
-        cpu.registers.set(1, 2048);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047).encode());
-        assert_eq!(cpu.registers.get(2), 0);
-        assert_eq!(cpu.registers.pc, 16);
+        test.set_register(1, 2048);
+        test.dbg_step(&encoder::sltiu(2, 1, 2047));
+        test.expect_register(2, 0);
 
-        cpu.registers.set(1, 2046);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047).encode());
-        assert_eq!(cpu.registers.get(2), 1);
-        assert_eq!(cpu.registers.pc, 20);
+        test.set_register(1, 2046);
+        test.dbg_step(&encoder::sltiu(2, 1, 2047));
+        test.expect_register(2, 1);
     }
 
     #[test]
     fn execute_andi() {
-        let (mut _cpu, mut _memory, _table) = test_args();
-        unimplemented!();
+        let mut test = init();
+
+        test.set_register(1, 0);
+        test.dbg_step(&encoder::andi(2, 1, 1));
+        test.expect_register(2, 0);
+
+        test.set_register(1, 0b0110);
+        test.dbg_step(&encoder::andi(2, 1, 0b0101));
+        test.expect_register(2, 0b0100);
     }
 
     #[test]
     fn execute_ori() {
-        let (mut _cpu, mut _memory, _table) = test_args();
-        unimplemented!();
+        let mut test = init();
+
+        test.set_register(1, 0);
+        test.dbg_step(&encoder::ori(2, 1, 1));
+        test.expect_register(2, 1);
+
+        test.set_register(1, 0b0110);
+        test.dbg_step(&encoder::ori(2, 1, 0b0101));
+        test.expect_register(2, 0b0111);
     }
 
     #[test]
     fn execute_xori() {
-        let (mut _cpu, mut _memory, _table) = test_args();
+        let mut test = init();
+
+        test.set_register(1, 0);
+        test.dbg_step(&encoder::xori(2, 1, 1));
+        test.expect_register(2, 1);
+
+        test.set_register(1, 0b0110);
+        test.dbg_step(&encoder::xori(2, 1, 0b0101));
+        test.expect_register(2, 0b0011);
+    }
+
+    #[test]
+    fn execute_slli() {
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_srli() {
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_srai() {
         unimplemented!();
     }
 
     #[test]
     fn execute_add() {
-        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_add_overflow() {
         unimplemented!();
     }
 
     #[test]
     fn execute_sub() {
-        let (mut _cpu, mut _memory, _table) = test_args();
+        unimplemented!();
+    }
+
+    #[test]
+    fn execute_sub_underflow() {
         unimplemented!();
     }
 
     #[test]
     fn execute_slt() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_sltu() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_and() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_or() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_xor() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_sll() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_srl() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_sra() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_lui() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_auipc() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_jal() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_jalr() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_jalr_result_is_misaligned() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_beq() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_bne() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_blt() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_bge() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_bltu() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_bgeu() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_lb() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_lh() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_lw() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_lbu() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_lhu() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_sb() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_sh() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_sw() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_fence() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 
     #[test]
     fn execute_fence_i() {
-        let (mut _cpu, mut _memory, _table) = test_args();
         unimplemented!();
     }
 }
