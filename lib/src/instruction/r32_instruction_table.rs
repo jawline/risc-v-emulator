@@ -635,7 +635,18 @@ mod test {
 
     #[test]
     fn execute_add() {
-        unimplemented!();
+        let mut test = init();
+
+        test.set_register(1, 5);
+        test.set_register(2, 10);
+        test.dbg_step(&encoder::add(1, 1, 2));
+        test.expect_register(1, 15);
+        test.expect_register(2, 10);
+
+        test.set_register(2, -5);
+        test.dbg_step(&encoder::add(2, 1, 2));
+        test.expect_register(1, 15);
+        test.expect_register(2, 10);
     }
 
     #[test]
@@ -644,8 +655,19 @@ mod test {
     }
 
     #[test]
-    fn execute_sub() {
-        unimplemented!();
+    fn execute_sub_overflow() {
+        let mut test = init();
+
+        test.set_register(1, 5);
+        test.set_register(2, 10);
+        test.dbg_step(&encoder::sub(1, 1, 2));
+        test.expect_register(1, -5);
+        test.expect_register(2, 10);
+
+        test.set_register(2, -5);
+        test.dbg_step(&encoder::sub(2, 1, 2));
+        test.expect_register(1, -5);
+        test.expect_register(2, -0);
     }
 
     #[test]

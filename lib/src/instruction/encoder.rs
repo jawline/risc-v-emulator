@@ -1,5 +1,6 @@
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::opcodes::OP_IMM;
+use super::funct3::op::{ADD_OR_SUB};
+use super::opcodes::{OP, OP_IMM};
 
 const fn i_type_opcode(
     opcode: u8,
@@ -20,7 +21,7 @@ const fn i_type_opcode(
     let destination_register = destination_register as u32;
     let source_register = source_register as u32;
 
-    (OP_IMM as u32)
+    (opcode as u32)
         | (destination_register << 7)
         | ((funct3 as u32) << 12)
         | (source_register << 15)
@@ -48,7 +49,7 @@ const fn op_opcode(
     let source_register1 = source_register1 as u32;
     let source_register2 = source_register2 as u32;
 
-    (OP_IMM as u32)
+    (opcode as u32)
         | (destination_register << 7)
         | ((funct3 as u32) << 12)
         | (source_register1 << 15)
@@ -94,7 +95,7 @@ impl Instruction {
                 funct3,
                 funct7,
             } => op_opcode(
-                OP_IMM as u8,
+                OP as u8,
                 destination_register,
                 source_register1,
                 source_register2,
@@ -118,6 +119,7 @@ pub const fn op_imm(
         immediate,
     }
 }
+
 
 /// Construct an add-immediate instruction that will add a signed 12-bit immediate
 /// to the register in rs1 and then place it in rd
@@ -201,6 +203,42 @@ pub const fn srai(destination_register: usize, source_register: usize, imm: u16)
     )
 }
 
+
+/// Construct a three register (two sources and one destination) op instruction
+pub const fn op(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+    funct3: u8,
+    funct7: u8,
+) -> Instruction {
+    Instruction::Op {
+        destination_register,
+        source_register1,
+        source_register2,
+        funct3,
+        funct7,
+    }
+}
+
+
+/// Construct an add instruction that will add rs1 and rs2 and place the result in rd
+pub const fn add(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(destination_register, source_register1, source_register2, ADD_OR_SUB, 0)
+}
+/// Construct a subtract instruction that will subtract rs2 from rs1 and place the result in rd
+pub const fn sub(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(destination_register, source_register1, source_register2, ADD_OR_SUB, 0b100000)
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -212,6 +250,7 @@ pub const fn no_op() -> Instruction {
 mod test {
     use super::super::decoder::*;
     use super::*;
+
 
     fn test_op_imm(
         instruction: &Instruction,
@@ -272,5 +311,35 @@ mod test {
     #[test]
     fn test_srai() {
         test_op_imm(&srai(2, 4, 3), SRLI_OR_SRAI, 2, 4, 0b010000000011);
+    }
+
+
+    fn test_op(
+        instruction: &Instruction,
+        rd_expected: usize,
+        rs1_expected: usize,
+        rs2_expected: usize,
+        funct3_expected: u8, 
+        funct7_expected: u8,
+    ) {
+        let example = instruction.encode();
+        assert_eq!(opcode(example), OP);
+        assert_eq!(funct3(example), funct3_expected);
+        assert_eq!(funct7(example), funct7_expected);
+        assert_eq!(rd(example), rd_expected);
+        assert_eq!(rs1(example), rs1_expected);
+        assert_eq!(rs2(example), rs2_expected);
+    }
+
+    #[test]
+    fn test_add() {
+        test_op(&add(0, 0, 0), 0, 0, 0, ADD_OR_SUB, 0);
+        test_op(&add(2, 4, 3), 2, 4, 3, ADD_OR_SUB, 0);
+    }
+
+    #[test]
+    fn test_sub() {
+        test_op(&sub(0, 0, 0), 0, 0, 0, ADD_OR_SUB, 0b0100000);
+        test_op(&sub(2, 4, 3), 2, 4, 3, ADD_OR_SUB, 0b0100000);
     }
 }
