@@ -579,17 +579,58 @@ mod test {
 
     #[test]
     fn execute_slli() {
-        unimplemented!();
+        let mut test = init();
+        test.set_register(1, 0);
+        test.dbg_step(&encoder::slli(2, 1, 1));
+        test.expect_register(2, 0);
+        test.set_register(1, 0b0110);
+        test.dbg_step(&encoder::slli(2, 1, 1));
+        test.expect_register(2, 0b1100);
+        test.dbg_step(&encoder::slli(2, 1, 2));
+        test.expect_register(2, 0b11000);
+        test.dbg_step(&encoder::slli(2, 1, 3));
+        test.expect_register(2, 0b110000);
+        test.dbg_step(&encoder::slli(2, 1, 32));
+        test.expect_register(2, 0b0);
+        test.set_register(1, -1);
+        test.dbg_step(&encoder::slli(2, 1, 16));
+        test.expect_register(2, 0b1111_1111_1111_1111_0000_0000_0000_0000u32 as i32);
     }
 
     #[test]
     fn execute_srli() {
-        unimplemented!();
+        let mut test = init();
+        test.set_register(1, 0);
+        test.dbg_step(&encoder::srli(2, 1, 1));
+        test.expect_register(2, 0);
+        test.set_register(1, 0b0110);
+        test.dbg_step(&encoder::srli(2, 1, 1));
+        test.expect_register(2, 0b0011);
+        test.dbg_step(&encoder::srli(2, 1, 2));
+        test.expect_register(2, 0b0001);
+        test.dbg_step(&encoder::srli(2, 1, 3));
+        test.expect_register(2, 0b0000);
+        test.set_register(1, -1);
+        test.dbg_step(&encoder::srli(2, 1, 16));
+        test.expect_register(2, 0b0000_0000_0000_0000_1111_1111_1111_1111u32 as i32);
     }
 
     #[test]
     fn execute_srai() {
-        unimplemented!();
+        let mut test = init();
+        test.set_register(1, 0);
+        test.dbg_step(&encoder::srai(2, 1, 1));
+        test.expect_register(2, 0);
+        test.set_register(1, 0b0110);
+        test.dbg_step(&encoder::srai(2, 1, 1));
+        test.expect_register(2, 0b0011);
+        test.dbg_step(&encoder::srai(2, 1, 2));
+        test.expect_register(2, 0b0001);
+        test.dbg_step(&encoder::srai(2, 1, 3));
+        test.expect_register(2, 0b0000);
+        test.set_register(1, -1);
+        test.dbg_step(&encoder::srai(2, 1, 16));
+        test.expect_register(2, 0b1111_1111_1111_1111_1111_1111_1111_1111u32 as i32);
     }
 
     #[test]
