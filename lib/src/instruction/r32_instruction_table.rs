@@ -1,4 +1,3 @@
-use std::time::SystemTime;
 use super::{
     decoder,
     funct3::{branch, load, op, op_imm, store},
@@ -7,6 +6,7 @@ use super::{
     util::C_5_BITS,
 };
 use crate::memory::{Memory, MemoryError};
+use std::time::SystemTime;
 
 const INSTRUCTION_SIZE: u32 = 4;
 const FUNCT7_SWITCH: u8 = 0b0100000;
@@ -341,7 +341,10 @@ impl InstructionTable {
     }
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
-        cpu_state.registers.rdtime = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+        cpu_state.registers.rdtime = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let op_arg = &mut OpArgs {
             state: cpu_state,
             memory: memory,
@@ -392,7 +395,7 @@ mod test {
     #[test]
     fn execute_no_op() {
         let (mut cpu, mut memory, table) = test_args();
-        table.step(&mut cpu, &mut memory, encoder::no_op());
+        table.step(&mut cpu, &mut memory, encoder::no_op().encode());
         assert_eq!(cpu.registers.pc, 4);
         assert_eq!(cpu.registers.get(0), 0);
     }
@@ -402,20 +405,20 @@ mod test {
         let (mut cpu, mut memory, table) = test_args();
 
         // Test INC 1
-        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1));
+        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1).encode());
         assert_eq!(cpu.registers.pc, 4);
         assert_eq!(cpu.registers.get(1), 1);
 
-        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1));
+        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1).encode());
         assert_eq!(cpu.registers.pc, 8);
         assert_eq!(cpu.registers.get(1), 2);
 
-        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1));
+        table.step(&mut cpu, &mut memory, encoder::addi(1, 1, 1).encode());
         assert_eq!(cpu.registers.pc, 12);
         assert_eq!(cpu.registers.get(1), 3);
 
         // Test r2 = r1 + 1
-        table.step(&mut cpu, &mut memory, encoder::addi(2, 1, 1));
+        table.step(&mut cpu, &mut memory, encoder::addi(2, 1, 1).encode());
         assert_eq!(cpu.registers.pc, 16);
         assert_eq!(cpu.registers.get(1), 3);
         assert_eq!(cpu.registers.get(2), 4);
@@ -424,7 +427,7 @@ mod test {
         table.step(
             &mut cpu,
             &mut memory,
-            encoder::addi(2, 1, pack_negative_into_12b(-1)),
+            encoder::addi(2, 1, pack_negative_into_12b(-1)).encode(),
         );
         assert_eq!(cpu.registers.pc, 20);
         assert_eq!(cpu.registers.get(1), 3);
@@ -434,7 +437,7 @@ mod test {
         table.step(
             &mut cpu,
             &mut memory,
-            encoder::addi(3, 2, pack_negative_into_12b(4)),
+            encoder::addi(3, 2, pack_negative_into_12b(4)).encode(),
         );
         assert_eq!(cpu.registers.pc, 24);
         assert_eq!(cpu.registers.get(1), 3);
@@ -453,29 +456,29 @@ mod test {
 
         // Test positive
         cpu.registers.set(1, 5);
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 4));
+        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 4).encode());
         assert_eq!(cpu.registers.get(1), 5);
         assert_eq!(cpu.registers.get(2), 0);
         assert_eq!(cpu.registers.pc, 4);
 
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 5));
+        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 5).encode());
         assert_eq!(cpu.registers.get(1), 5);
         assert_eq!(cpu.registers.get(2), 0);
         assert_eq!(cpu.registers.pc, 8);
 
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 6));
+        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 6).encode());
         assert_eq!(cpu.registers.get(1), 5);
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 12);
 
         // Test max int
         cpu.registers.set(1, 2047 as u32);
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047));
+        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047).encode());
         assert_eq!(cpu.registers.get(2), 0);
         assert_eq!(cpu.registers.pc, 16);
 
         cpu.registers.set(1, 2046 as u32);
-        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047));
+        table.step(&mut cpu, &mut memory, encoder::slti(2, 1, 2047).encode());
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 20);
 
@@ -484,7 +487,7 @@ mod test {
         table.step(
             &mut cpu,
             &mut memory,
-            encoder::slti(2, 1, pack_negative_into_12b(-2048)),
+            encoder::slti(2, 1, pack_negative_into_12b(-2048)).encode(),
         );
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 24);
@@ -493,7 +496,7 @@ mod test {
         table.step(
             &mut cpu,
             &mut memory,
-            encoder::slti(2, 1, pack_negative_into_12b(-2048)),
+            encoder::slti(2, 1, pack_negative_into_12b(-2048)).encode(),
         );
         assert_eq!(cpu.registers.get(2), 0);
         assert_eq!(cpu.registers.pc, 28);
@@ -504,27 +507,27 @@ mod test {
         let (mut cpu, mut memory, table) = test_args();
 
         cpu.registers.set(1, 0);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 0));
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 0).encode());
         assert_eq!(cpu.registers.get(2), 0);
         assert_eq!(cpu.registers.pc, 4);
 
         cpu.registers.set(1, 0);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1));
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1).encode());
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 8);
 
         cpu.registers.set(1, 2);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1));
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 1).encode());
         assert_eq!(cpu.registers.get(2), 0);
         assert_eq!(cpu.registers.pc, 12);
 
         cpu.registers.set(1, 2048);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047));
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047).encode());
         assert_eq!(cpu.registers.get(2), 0);
         assert_eq!(cpu.registers.pc, 16);
 
         cpu.registers.set(1, 2046);
-        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047));
+        table.step(&mut cpu, &mut memory, encoder::sltiu(2, 1, 2047).encode());
         assert_eq!(cpu.registers.get(2), 1);
         assert_eq!(cpu.registers.pc, 20);
     }

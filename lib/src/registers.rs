@@ -39,7 +39,6 @@ pub struct Registers<T: Default + Copy, const N: usize> {
 
     /// Wall clock. The step function should update this to system time.
     pub rdtime: u64,
-
 }
 
 // Convenience functions that proxy through to general. pc can be used directly.

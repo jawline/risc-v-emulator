@@ -1,13 +1,14 @@
-use super::funct3::op_imm::{ADDI, SLTI, SLTIU};
+use super::funct3::op_imm::{ADDI, ANDI, ORI, SLTI, SLTIU, XORI};
 use super::opcodes::OP_IMM;
 
-const fn op_imm_funct3(
+const fn i_type_opcode(
+    opcode: u8,
     destination_register: usize,
     source_register: usize,
     funct3: u8,
     imm: u16,
 ) -> u32 {
-    if destination_register > 32 || source_register > 32 || funct3 > 0b111 {
+    if destination_register > 32 || source_register > 32 || funct3 > 0b111 || opcode > 0b111111 {
         panic!("destination or source > 32, cannot construct instruction");
     }
 
@@ -25,30 +26,94 @@ const fn op_imm_funct3(
         | (imm as u32) << 20
 }
 
+pub enum Instruction {
+    OpImm {
+        destination_register: usize,
+        source_register: usize,
+        funct3: u8,
+        immediate: u16,
+    },
+}
+
+impl Instruction {
+    pub fn encode(&self) -> u32 {
+        match self {
+            &Instruction::OpImm {
+                destination_register,
+                source_register,
+                funct3,
+                immediate,
+            } => i_type_opcode(
+                OP_IMM as u8,
+                destination_register,
+                source_register,
+                funct3,
+                immediate,
+            ),
+        }
+    }
+}
+
+pub const fn op_imm(
+    destination_register: usize,
+    source_register: usize,
+    funct3: u8,
+    immediate: u16,
+) -> Instruction {
+    Instruction::OpImm {
+        destination_register,
+        source_register,
+        funct3,
+        immediate,
+    }
+}
+
 /// Construct an add-immediate instruction that will add a signed 12-bit immediate
 /// to the register in rs1 and then place it in rd
-pub const fn addi(destination_register: usize, source_register: usize, imm: u16) -> u32 {
-    op_imm_funct3(destination_register, source_register, ADDI, imm)
+pub const fn addi(
+    destination_register: usize,
+    source_register: usize,
+    immediate: u16,
+) -> Instruction {
+    op_imm(destination_register, source_register, ADDI, immediate)
 }
 
 /// Construct a set-less-than-immediate (SLTI) instruction that will set the destination
 /// register to 1 if the register rs1 is < the sign extended immediate and set the destination
 /// register to zero otherwise.
-pub const fn slti(destination_register: usize, source_register: usize, imm: u16) -> u32 {
-    op_imm_funct3(destination_register, source_register, SLTI, imm)
+pub const fn slti(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    op_imm(destination_register, source_register, SLTI, imm)
 }
 
 /// Construct a set-less-than-immediate-unsigned (SLTIU) instruction that will set the destination
 /// register to 1 if the register rs1 is < the sign extended immediate and set the destination
 /// register to zero otherwise. In SLTIU the comparison is done treating the arguments as unsigned.
-pub const fn sltiu(destination_register: usize, source_register: usize, imm: u16) -> u32 {
-    op_imm_funct3(destination_register, source_register, SLTIU, imm)
+pub const fn sltiu(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    op_imm(destination_register, source_register, SLTIU, imm)
+}
+
+/// Construct an XORI (exclusive or immediate) which sets the destination register to the bitwise
+/// XOR of the rs1 register with the sign extended immediate supplied.
+pub const fn xori(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    op_imm(destination_register, source_register, XORI, imm)
+}
+
+/// Construct an ORI (or immediate) which sets the destination register to the bitwise
+/// OR of the rs1 register with the sign extended immediate supplied.
+pub const fn ori(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    op_imm(destination_register, source_register, ORI, imm)
+}
+
+/// Construct an ANDI (and immediate) which sets the destination register to the bitwise
+/// AND of the rs1 register with the sign extended immediate supplied.
+pub const fn andi(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    op_imm(destination_register, source_register, ANDI, imm)
 }
 
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
-pub const fn no_op() -> u32 {
+pub const fn no_op() -> Instruction {
     addi(0, 0, 0)
 }
 
@@ -57,30 +122,49 @@ mod test {
     use super::super::decoder::*;
     use super::*;
 
+    fn test_op_imm(
+        instruction: &Instruction,
+        funct3_expected: u8,
+        rd_expected: usize,
+        rs1_expected: usize,
+        imm: i32,
+    ) {
+        let example = instruction.encode();
+        assert_eq!(opcode(example), OP_IMM);
+        assert_eq!(funct3(example), funct3_expected);
+        assert_eq!(rd(example), rd_expected);
+        assert_eq!(rs1(example), rs1_expected);
+        assert_eq!(i_type_immediate_32(example), imm as i32);
+    }
+
     #[test]
     fn test_addi() {
-        let no_op = addi(0, 0, 0);
-        assert_eq!(opcode(no_op), OP_IMM);
-        assert_eq!(funct3(no_op), ADDI);
-        assert_eq!(rd(no_op), 0);
-        assert_eq!(rs1(no_op), 0);
-        assert_eq!(i_type_immediate_32(no_op), 0);
-
-        let normal_immediate = addi(2, 4, 100);
-        assert_eq!(opcode(normal_immediate), OP_IMM);
-        assert_eq!(funct3(normal_immediate), ADDI);
-        assert_eq!(rd(normal_immediate), 2);
-        assert_eq!(rs1(normal_immediate), 4);
-        assert_eq!(i_type_immediate_32(normal_immediate), 100);
+        test_op_imm(&addi(0, 0, 0), ADDI, 0, 0, 0);
+        test_op_imm(&addi(2, 4, 100), ADDI, 2, 4, 100);
     }
 
     #[test]
     fn test_slti() {
-        unimplemented!();
+        test_op_imm(&slti(2, 4, 100), SLTI, 2, 4, 100);
     }
 
     #[test]
     fn test_sltiu() {
-        unimplemented!();
+        test_op_imm(&sltiu(2, 4, 100), SLTIU, 2, 4, 100);
+    }
+
+    #[test]
+    fn test_xori() {
+        test_op_imm(&xori(2, 4, 100), XORI, 2, 4, 100);
+    }
+
+    #[test]
+    fn test_ori() {
+        test_op_imm(&ori(2, 4, 100), ORI, 2, 4, 100);
+    }
+
+    #[test]
+    fn test_andi() {
+        test_op_imm(&andi(2, 4, 100), ANDI, 2, 4, 100);
     }
 }
