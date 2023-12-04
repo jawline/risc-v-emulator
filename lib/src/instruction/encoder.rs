@@ -1,4 +1,4 @@
-use super::funct3::op_imm::{ADDI, ANDI, ORI, SLTI, SLTIU, XORI};
+use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::opcodes::OP_IMM;
 
 const fn i_type_opcode(
@@ -110,6 +110,46 @@ pub const fn andi(destination_register: usize, source_register: usize, imm: u16)
     op_imm(destination_register, source_register, ANDI, imm)
 }
 
+/// Construct an SLLI (shift left by immediate) which sets the destination register to the bitwise
+/// left shift of the rs1 register by the immediate specified.
+pub const fn slli(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    if imm > 0b11111 {
+        panic!("SRLI cannot have a shift immediate of greater than 0b11111");
+    }
+
+    op_imm(destination_register, source_register, SLLI, imm & 0b11111)
+}
+
+/// Construct an SRLI (shift left by immediate) which sets the destination register to the bitwise
+/// right shift of the rs1 register by the immediate specified.
+pub const fn srli(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    if imm > 0b11111 {
+        panic!("SRLI cannot have a shift immediate of greater than 0b11111");
+    }
+
+    op_imm(
+        destination_register,
+        source_register,
+        SRLI_OR_SRAI,
+        imm & 0b11111,
+    )
+}
+
+/// Construct an SRLI (shift left by immediate) which sets the destination register to the
+/// arithmetic right shift of the rs1 register by the immediate specified.
+pub const fn srai(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+    if imm > 0b11111 {
+        panic!("SRLI cannot have a shift immediate of greater than 0b11111");
+    }
+
+    op_imm(
+        destination_register,
+        source_register,
+        SRLI_OR_SRAI,
+        0b0100000_00000 | (imm & 0b11111),
+    )
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -166,5 +206,20 @@ mod test {
     #[test]
     fn test_andi() {
         test_op_imm(&andi(2, 4, 100), ANDI, 2, 4, 100);
+    }
+
+    #[test]
+    fn test_slli() {
+        test_op_imm(&slli(2, 4, 3), SLLI, 2, 4, 0b000000000011);
+    }
+
+    #[test]
+    fn test_srli() {
+        test_op_imm(&srli(2, 4, 3), SRLI_OR_SRAI, 2, 4, 0b000000000011);
+    }
+
+    #[test]
+    fn test_srai() {
+        test_op_imm(&srai(2, 4, 3), SRLI_OR_SRAI, 2, 4, 0b010000000011);
     }
 }
