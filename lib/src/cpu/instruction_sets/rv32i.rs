@@ -333,9 +333,9 @@ fn fence(op: &mut OpArgs) {
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
-pub struct InstructionTable {}
+pub struct InstructionSet {}
 
-impl InstructionTable {
+impl InstructionSet {
     pub const fn new() -> Self {
         Self {}
     }

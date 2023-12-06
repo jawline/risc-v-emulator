@@ -1,4 +1,4 @@
-use super::funct3::op::ADD_OR_SUB;
+use super::funct3::op::{ADD_OR_SUB, SLT, SLTU};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::opcodes::{OP, OP_IMM};
 
@@ -233,6 +233,7 @@ pub const fn add(
         0,
     )
 }
+
 /// Construct a subtract instruction that will subtract rs2 from rs1 and place the result in rd
 pub const fn sub(
     destination_register: usize,
@@ -245,6 +246,36 @@ pub const fn sub(
         source_register2,
         ADD_OR_SUB,
         0b100000,
+    )
+}
+
+/// Construct a set less than of two registers
+pub const fn slt(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        SLT,
+        0b0,
+    )
+}
+
+/// Construct a set less than unsigned of two registers
+pub const fn sltu(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        SLTU,
+        0b0,
     )
 }
 
@@ -348,5 +379,17 @@ mod test {
     fn test_sub() {
         test_op(&sub(0, 0, 0), 0, 0, 0, ADD_OR_SUB, 0b0100000);
         test_op(&sub(2, 4, 3), 2, 4, 3, ADD_OR_SUB, 0b0100000);
+    }
+
+    #[test]
+    fn test_slt() {
+        test_op(&slt(0, 0, 0), 0, 0, 0, SLT, 0b0);
+        test_op(&slt(2, 4, 3), 2, 4, 3, SLT, 0b0);
+    }
+
+    #[test]
+    fn test_sltu() {
+        test_op(&sltu(0, 0, 0), 0, 0, 0, SLTU, 0b0);
+        test_op(&sltu(2, 4, 3), 2, 4, 3, SLTU, 0b0);
     }
 }

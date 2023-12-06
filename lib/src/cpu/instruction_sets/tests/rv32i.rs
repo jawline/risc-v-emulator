@@ -1,5 +1,5 @@
 use super::*;
-use crate::cpu::instruction_sets::rv32i::{CpuState, InstructionTable};
+use crate::cpu::instruction_sets::rv32i::{CpuState, InstructionSet};
 use crate::instruction::encoder::{self, Instruction};
 use crate::memory::Memory;
 
@@ -13,13 +13,13 @@ const fn pack_negative_into_12b(val: i16) -> u16 {
 
 #[test]
 fn create_table() {
-    let _table = InstructionTable::new();
+    let _table = InstructionSet::new();
 }
 
 struct TestEnvironment {
     state: CpuState,
     memory: Memory,
-    tbl: InstructionTable,
+    tbl: InstructionSet,
     last_pc: u32,
 }
 
@@ -28,7 +28,7 @@ impl TestEnvironment {
         TestEnvironment {
             state: CpuState::new(),
             memory: Memory::new(4096),
-            tbl: InstructionTable::new(),
+            tbl: InstructionSet::new(),
             last_pc: 0,
         }
     }
@@ -305,12 +305,62 @@ fn execute_sub_underflow() {
 
 #[test]
 fn execute_slt() {
-    unimplemented!();
+    let mut test = init();
+
+    // Test positive
+    test.set_register(1, 4);
+    test.set_register(2, 4);
+    test.dbg_step(&encoder::slt(3, 1, 2));
+    test.expect_register(3, 0);
+
+    test.set_register(1, 3);
+    test.dbg_step(&encoder::slt(3, 1, 2));
+    test.expect_register(3, 1);
+
+    // Test max int
+    test.set_register(1, 2147483647);
+    test.set_register(2, 2147483647);
+    test.dbg_step(&encoder::slt(3, 1, 2));
+    test.expect_register(3, 0);
+
+    test.set_register(1, 2147483646);
+    test.dbg_step(&encoder::slt(3, 1, 2));
+    test.expect_register(3, 1);
+
+    // Test negative
+    test.set_register(1, -2147483648);
+    test.set_register(2, -2147483648);
+    test.dbg_step(&encoder::slt(3, 1, 2));
+    test.expect_register(3, 0);
+
+    test.set_register(2, -2147483647);
+    test.dbg_step(&encoder::slt(3, 1, 2));
+    test.expect_register(3, 1);
 }
 
 #[test]
 fn execute_sltu() {
-    unimplemented!();
+    let mut test = init();
+
+    // Test positive
+    test.set_register(1, 0);
+    test.set_register(2, 0);
+    test.dbg_step(&encoder::sltu(3, 1, 2));
+    test.expect_register(3, 0);
+
+    test.set_register(1, 1);
+    test.dbg_step(&encoder::sltu(3, 1, 2));
+    test.expect_register(3, 1);
+
+    // Test max int
+    test.set_register(1, 4294967295u32 as i32);
+    test.set_register(2, 4294967295u32 as i32);
+    test.dbg_step(&encoder::sltu(3, 1, 2));
+    test.expect_register(3, 0);
+
+    test.set_register(1, 4294967293u32 as i32);
+    test.dbg_step(&encoder::sltu(3, 1, 2));
+    test.expect_register(3, 1);
 }
 
 #[test]
