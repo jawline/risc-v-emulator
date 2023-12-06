@@ -365,12 +365,20 @@ fn execute_sltu() {
 
 #[test]
 fn execute_and() {
-    unimplemented!();
+    let mut test = init();
+    test.set_register(1, 0b1110010101);
+    test.set_register(2, 0b0010101101);
+    test.dbg_step(&encoder::and(3, 1, 2));
+    test.expect_register(3, 0b0010000101);
 }
 
 #[test]
 fn execute_or() {
-    unimplemented!();
+    let mut test = init();
+    test.set_register(1, 0b1110010101);
+    test.set_register(2, 0b0010101101);
+    test.dbg_step(&encoder::or(3, 1, 2));
+    test.expect_register(3, 0b1110111101);
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use super::funct3::op::{ADD_OR_SUB, SLT, SLTU};
+use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::opcodes::{OP, OP_IMM};
 
@@ -245,7 +245,7 @@ pub const fn sub(
         source_register1,
         source_register2,
         ADD_OR_SUB,
-        0b100000,
+        0b0100000,
     )
 }
 
@@ -276,6 +276,96 @@ pub const fn sltu(
         source_register2,
         SLTU,
         0b0,
+    )
+}
+
+/// Construct a bitwise and of two registers
+pub const fn and(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        AND,
+        0b0,
+    )
+}
+
+/// Construct a bitwise or of two registers
+pub const fn or(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        OR,
+        0b0,
+    )
+}
+
+/// Construct a bitwise xor of two registers
+pub const fn xor(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        XOR,
+        0b0,
+    )
+}
+
+/// Construct a logical shift left of rs1 by rs2
+pub const fn sll(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        SLL,
+        0b0,
+    )
+}
+
+/// Construct a logical shift right of rs1 by rs2
+pub const fn srl(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        SRL_OR_SRA,
+        0b0,
+    )
+}
+
+/// Construct an arithmetic shift right of rs1 by rs2
+pub const fn sra(
+    destination_register: usize,
+    source_register1: usize,
+    source_register2: usize,
+) -> Instruction {
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        SRL_OR_SRA,
+        0b0100000,
     )
 }
 
@@ -391,5 +481,41 @@ mod test {
     fn test_sltu() {
         test_op(&sltu(0, 0, 0), 0, 0, 0, SLTU, 0b0);
         test_op(&sltu(2, 4, 3), 2, 4, 3, SLTU, 0b0);
+    }
+
+    #[test]
+    fn test_and() {
+        test_op(&and(0, 0, 0), 0, 0, 0, AND, 0b0);
+        test_op(&and(2, 4, 3), 2, 4, 3, AND, 0b0);
+    }
+
+    #[test]
+    fn test_or() {
+        test_op(&or(0, 0, 0), 0, 0, 0, OR, 0b0);
+        test_op(&or(2, 4, 3), 2, 4, 3, OR, 0b0);
+    }
+
+    #[test]
+    fn test_xor() {
+        test_op(&xor(0, 0, 0), 0, 0, 0, XOR, 0b0);
+        test_op(&xor(2, 4, 3), 2, 4, 3, XOR, 0b0);
+    }
+
+    #[test]
+    fn test_sll() {
+        test_op(&sll(0, 0, 0), 0, 0, 0, SLL, 0b0);
+        test_op(&sll(2, 4, 3), 2, 4, 3, SLL, 0b0);
+    }
+
+    #[test]
+    fn test_srl() {
+        test_op(&srl(0, 0, 0), 0, 0, 0, SRL_OR_SRA, 0b0);
+        test_op(&srl(2, 4, 3), 2, 4, 3, SRL_OR_SRA, 0b0);
+    }
+
+    #[test]
+    fn test_sra() {
+        test_op(&sra(0, 0, 0), 0, 0, 0, SRL_OR_SRA, 0b0100000);
+        test_op(&sra(2, 4, 3), 2, 4, 3, SRL_OR_SRA, 0b0100000);
     }
 }
