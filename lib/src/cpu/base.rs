@@ -1,5 +1,5 @@
+use crate::cpu::registers::Registers;
 use crate::memory::Memory;
-use crate::registers::Registers;
 
 #[derive(Debug)]
 pub struct CpuState<T: Default + Copy, const N: usize> {

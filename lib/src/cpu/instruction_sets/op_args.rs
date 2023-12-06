@@ -1,14 +1,16 @@
-use crate::cpu_r32i::CpuState;
+use crate::cpu::base::CpuState;
 use crate::instruction::decoder;
 use crate::memory::Memory;
+use std::default::Default;
+use std::marker::Copy;
 
-pub struct OpArgs<'a, 'b> {
-    pub state: &'a mut CpuState<u32, 32>,
+pub struct OpArgs<'a, 'b, T: Default + Copy, const N: usize> {
+    pub state: &'a mut CpuState<T, N>,
     pub memory: &'b mut Memory,
     pub instruction: u32,
 }
 
-impl<'a, 'b> OpArgs<'a, 'b> {
+impl<'a, 'b, T: Default + Copy, const N: usize> OpArgs<'a, 'b, T, N> {
     pub fn i_imm(&self) -> i32 {
         decoder::i_type_immediate_32(self.instruction)
     }

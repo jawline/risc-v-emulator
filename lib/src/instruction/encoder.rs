@@ -1,5 +1,5 @@
+use super::funct3::op::ADD_OR_SUB;
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::funct3::op::{ADD_OR_SUB};
 use super::opcodes::{OP, OP_IMM};
 
 const fn i_type_opcode(
@@ -120,7 +120,6 @@ pub const fn op_imm(
     }
 }
 
-
 /// Construct an add-immediate instruction that will add a signed 12-bit immediate
 /// to the register in rs1 and then place it in rd
 pub const fn addi(
@@ -203,7 +202,6 @@ pub const fn srai(destination_register: usize, source_register: usize, imm: u16)
     )
 }
 
-
 /// Construct a three register (two sources and one destination) op instruction
 pub const fn op(
     destination_register: usize,
@@ -221,14 +219,19 @@ pub const fn op(
     }
 }
 
-
 /// Construct an add instruction that will add rs1 and rs2 and place the result in rd
 pub const fn add(
     destination_register: usize,
     source_register1: usize,
     source_register2: usize,
 ) -> Instruction {
-    op(destination_register, source_register1, source_register2, ADD_OR_SUB, 0)
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        ADD_OR_SUB,
+        0,
+    )
 }
 /// Construct a subtract instruction that will subtract rs2 from rs1 and place the result in rd
 pub const fn sub(
@@ -236,7 +239,13 @@ pub const fn sub(
     source_register1: usize,
     source_register2: usize,
 ) -> Instruction {
-    op(destination_register, source_register1, source_register2, ADD_OR_SUB, 0b100000)
+    op(
+        destination_register,
+        source_register1,
+        source_register2,
+        ADD_OR_SUB,
+        0b100000,
+    )
 }
 
 /// Construct a canonical no-op.
@@ -250,7 +259,6 @@ pub const fn no_op() -> Instruction {
 mod test {
     use super::super::decoder::*;
     use super::*;
-
 
     fn test_op_imm(
         instruction: &Instruction,
@@ -313,13 +321,12 @@ mod test {
         test_op_imm(&srai(2, 4, 3), SRLI_OR_SRAI, 2, 4, 0b010000000011);
     }
 
-
     fn test_op(
         instruction: &Instruction,
         rd_expected: usize,
         rs1_expected: usize,
         rs2_expected: usize,
-        funct3_expected: u8, 
+        funct3_expected: u8,
         funct7_expected: u8,
     ) {
         let example = instruction.encode();
