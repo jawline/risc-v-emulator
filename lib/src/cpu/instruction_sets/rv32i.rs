@@ -138,8 +138,17 @@ fn op(op: &mut OpArgs) {
         op::SLL => apply_op(op, |r1, r2| ((r1 as u32) << (r2 as u32)) as i32),
         op::SRL_OR_SRA => apply_op_with_funct7_switch(
             op,
-            |r1, r2| ((r1 as u32) >> (r2 as u32)) as i32,
-            |r1, r2| r1 >> (r2 as u32),
+            |r1, r2| {
+                /* SRA */
+                r1 >> r2
+            },
+            |r1, r2| {
+                /* SRL */
+                let r1 = r1 as u32;
+                let r2 = r2 as u32;
+                let result = r1 >> r2;
+                result as i32
+            },
         ),
         8..=u8::MAX => panic!("funct3 parameter should not be > 0b111. This is an emulation bug."),
     };

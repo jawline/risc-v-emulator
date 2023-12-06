@@ -45,6 +45,10 @@ impl TestEnvironment {
         assert_eq!(self.last_pc + 4, self.state.registers.pc);
     }
 
+    fn get_register(&mut self, index: usize) -> i32 {
+        self.state.registers.geti(index)
+    }
+
     fn set_register(&mut self, index: usize, value: i32) {
         self.state.registers.seti(index, value);
     }
@@ -383,22 +387,41 @@ fn execute_or() {
 
 #[test]
 fn execute_xor() {
-    unimplemented!();
+    let mut test = init();
+    test.set_register(1, 0b1110010101);
+    test.set_register(2, 0b0010101101);
+    test.dbg_step(&encoder::xor(3, 1, 2));
+    test.expect_register(3, 0b1100111000);
 }
 
 #[test]
 fn execute_sll() {
-    unimplemented!();
+    let mut test = init();
+    test.set_register(1, 0b11100000_00000000_00000011_10010101u32 as i32);
+    test.set_register(2, 2);
+    test.dbg_step(&encoder::sll(3, 1, 2));
+    test.expect_register(3, 0b100000_00000000_00000011_1001010100u32 as i32);
 }
 
 #[test]
 fn execute_srl() {
-    unimplemented!();
+    let mut test = init();
+    test.set_register(1, -1);
+    test.set_register(2, 16);
+    test.dbg_step(&encoder::srl(3, 1, 2));
+    println!("{:032b}", test.get_register(1));
+    println!("{:032b}", test.get_register(2));
+    println!("{:032b}", test.get_register(3));
+    test.expect_register(3, 0b00000000_00000000_11111111_11111111u32 as i32);
 }
 
 #[test]
 fn execute_sra() {
-    unimplemented!();
+    let mut test = init();
+    test.set_register(1, -1);
+    test.set_register(2, 16);
+    test.dbg_step(&encoder::sra(3, 1, 2));
+    test.expect_register(3, 0b11111111_11111111_11111111_11111111u32 as i32);
 }
 
 #[test]
