@@ -1,6 +1,6 @@
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::opcodes::{LUI, OP, OP_IMM};
+use super::opcodes::{AUIPC, LUI, OP, OP_IMM};
 
 const fn i_type_opcode(
     opcode: u8,
@@ -65,6 +65,14 @@ const fn encode_lui(destination_register: usize, value: u32) -> u32 {
     value | ((destination_register as u32) << 7) | (LUI as u32)
 }
 
+const fn encode_auipc(destination_register: usize, value: u32) -> u32 {
+    if value & 0b1111_1111_1111 != 0 {
+        panic!("lower 12 bits of value in an AUI isntruction cannot be set");
+    }
+
+    value | ((destination_register as u32) << 7) | (AUIPC as u32)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -80,6 +88,10 @@ pub enum Instruction {
         funct7: u8,
     },
     Lui {
+        destination_register: usize,
+        value: u32,
+    },
+    Auipc {
         destination_register: usize,
         value: u32,
     },
@@ -118,6 +130,10 @@ impl Instruction {
                 destination_register,
                 value,
             } => encode_lui(destination_register, value),
+            &Instruction::Auipc {
+                destination_register,
+                value,
+            } => encode_auipc(destination_register, value),
         }
     }
 }
@@ -385,8 +401,19 @@ pub const fn sra(
     )
 }
 
+/// Construct a load-upper-immediate (set destination register to value, where value cannot have
+/// its lower 12 bits set).
 pub const fn lui(destination_register: usize, value: u32) -> Instruction {
     Instruction::Lui {
+        destination_register,
+        value,
+    }
+}
+
+/// Construct an add-upper-immediate-to-pc (set destination_register to value + pc where value
+/// cannot have its lower 12 bits set).
+pub const fn auipc(destination_register: usize, value: u32) -> Instruction {
+    Instruction::Auipc {
         destination_register,
         value,
     }
@@ -547,6 +574,15 @@ mod test {
         let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
         let op = lui(5, value).encode();
         assert_eq!(opcode(op), LUI);
+        assert_eq!(rd(op), 5);
+        assert_eq!(op >> 12, value >> 12);
+    }
+
+    #[test]
+    fn test_auipc() {
+        let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
+        let op = auipc(5, value).encode();
+        assert_eq!(opcode(op), AUIPC);
         assert_eq!(rd(op), 5);
         assert_eq!(op >> 12, value >> 12);
     }

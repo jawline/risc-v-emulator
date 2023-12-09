@@ -25,6 +25,11 @@ fn trap_memory_access(address: u32, op: &OpArgs) {
     panic!("Illegal memory access trap when accessing address {instruction:032b} {address:032b} {state:?}")
 }
 
+fn trap_unaligned_instruction(op: &OpArgs) {
+    let state = &op.state;
+    panic!("Illegal unaligned PC {state:?}")
+}
+
 fn apply_op<F: Fn(i32, i32) -> i32>(op: &mut OpArgs, f: F) {
     let source_register1 = op.rs1();
     let source_register2 = op.rs2();
@@ -302,7 +307,6 @@ fn auipc(op: &mut OpArgs) {
         op.state.registers.pc + (immediate as u32),
     );
     op.state.registers.pc += INSTRUCTION_SIZE;
-    panic!("BUG: TODO: Handle unaligned jumps");
 }
 
 /// JAL (jump and link) adds the signed J-immediate value to the current PC after storing the

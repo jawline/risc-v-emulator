@@ -53,6 +53,10 @@ impl TestEnvironment {
         self.state.registers.seti(index, value);
     }
 
+    fn set_pc(&mut self, pc: u32) {
+        self.state.registers.pc = pc;
+    }
+
     fn expect_register(&self, index: usize, value: i32) {
         assert_eq!(self.state.registers.geti(index), value)
     }
@@ -435,7 +439,12 @@ fn execute_lui() {
 
 #[test]
 fn execute_auipc() {
-    unimplemented!();
+    let mut test = init();
+    let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
+    test.set_pc(0b1010_1010_1010);
+    test.set_register(1, -1);
+    test.dbg_step(&encoder::auipc(1, value));
+    test.expect_register(1, 0b1101_1111_0101_1010_0101_1010_1010_1010u32 as i32);
 }
 
 #[test]
