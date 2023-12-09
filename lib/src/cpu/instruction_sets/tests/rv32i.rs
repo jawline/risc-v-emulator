@@ -20,7 +20,6 @@ struct TestEnvironment {
     state: CpuState,
     memory: Memory,
     tbl: InstructionSet,
-    last_pc: u32,
 }
 
 impl TestEnvironment {
@@ -29,20 +28,24 @@ impl TestEnvironment {
             state: CpuState::new(),
             memory: Memory::new(4096),
             tbl: InstructionSet::new(),
-            last_pc: 0,
         }
     }
 
     fn step(&mut self, instruction: &Instruction) {
-        self.last_pc = self.state.registers.pc;
         self.tbl
             .step(&mut self.state, &mut self.memory, instruction.encode());
     }
 
-    /// Step function that applys some default checks
-    fn dbg_step(&mut self, instruction: &Instruction) {
+    /// Step function that asserts an expected new PC
+    fn dbg_step_jmp(&mut self, instruction: &Instruction, expected_new_pc: u32) {
         self.step(instruction);
-        assert_eq!(self.last_pc + 4, self.state.registers.pc);
+        assert_eq!(expected_new_pc, self.state.registers.pc);
+    }
+
+    /// Step function that checks the PC is incremented by 4
+    fn dbg_step(&mut self, instruction: &Instruction) {
+        let pc = self.state.registers.pc;
+        self.dbg_step_jmp(instruction, pc + 4);
     }
 
     fn get_register(&mut self, index: usize) -> i32 {
@@ -449,7 +452,15 @@ fn execute_auipc() {
 
 #[test]
 fn execute_jal() {
-    unimplemented!();
+    let mut test = init();
+    let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
+    test.set_pc(5000);
+    test.set_register(1, -1);
+    test.dbg_step_jmp(&encoder::jal(500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, -1);
+    test.dbg_step_jmp(&encoder::jal(-500), 4500);
 }
 
 #[test]

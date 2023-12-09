@@ -320,7 +320,11 @@ fn jal(op: &mut OpArgs) {
         .registers
         .set(destination_register, op.state.registers.pc + 4);
     op.state.registers.pc = new_pc;
-    panic!("BUG: TODO: Handle unaligned jumps");
+
+    // If the new PC is not a multiple of 4 we trap
+    if op.state.registers.pc & 0b11 != 0 {
+        trap_unaligned_instruction(op);
+    }
 }
 
 /// JALR (Indirect jump) adds a 12-bit signed immediate to whatever is at rs1, sets the LSB of that
