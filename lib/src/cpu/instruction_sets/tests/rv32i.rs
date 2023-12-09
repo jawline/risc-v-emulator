@@ -426,7 +426,11 @@ fn execute_sra() {
 
 #[test]
 fn execute_lui() {
-    unimplemented!();
+    let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
+    let mut test = init();
+    test.set_register(1, -1);
+    test.dbg_step(&encoder::lui(1, value));
+    test.expect_register(1, value as i32);
 }
 
 #[test]

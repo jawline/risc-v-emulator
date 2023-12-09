@@ -1,6 +1,6 @@
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::opcodes::{OP, OP_IMM};
+use super::opcodes::{LUI, OP, OP_IMM};
 
 const fn i_type_opcode(
     opcode: u8,
@@ -57,6 +57,14 @@ const fn op_opcode(
         | ((funct7 as u32) << 25)
 }
 
+const fn encode_lui(destination_register: usize, value: u32) -> u32 {
+    if value & 0b1111_1111_1111 != 0 {
+        panic!("lower 12 bits of value in an LUI isntruction cannot be set");
+    }
+
+    value | ((destination_register as u32) << 7) | (LUI as u32)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -71,10 +79,14 @@ pub enum Instruction {
         funct3: u8,
         funct7: u8,
     },
+    Lui {
+        destination_register: usize,
+        value: u32,
+    },
 }
 
 impl Instruction {
-    pub fn encode(&self) -> u32 {
+    pub const fn encode(&self) -> u32 {
         match self {
             &Instruction::OpImm {
                 destination_register,
@@ -102,6 +114,10 @@ impl Instruction {
                 funct3,
                 funct7,
             ),
+            &Instruction::Lui {
+                destination_register,
+                value,
+            } => encode_lui(destination_register, value),
         }
     }
 }
@@ -369,6 +385,13 @@ pub const fn sra(
     )
 }
 
+pub const fn lui(destination_register: usize, value: u32) -> Instruction {
+    Instruction::Lui {
+        destination_register,
+        value,
+    }
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -517,5 +540,14 @@ mod test {
     fn test_sra() {
         test_op(&sra(0, 0, 0), 0, 0, 0, SRL_OR_SRA, 0b0100000);
         test_op(&sra(2, 4, 3), 2, 4, 3, SRL_OR_SRA, 0b0100000);
+    }
+
+    #[test]
+    fn test_lui() {
+        let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
+        let op = lui(5, value).encode();
+        assert_eq!(opcode(op), LUI);
+        assert_eq!(rd(op), 5);
+        assert_eq!(op >> 12, value >> 12);
     }
 }

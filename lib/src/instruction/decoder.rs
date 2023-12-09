@@ -42,7 +42,7 @@ pub const fn funct7(instruction: u32) -> u8 {
 /// All immediates are sign extended but in this case the sign bit is
 /// naturally in the correct position so we just cast it to an i32.
 pub const fn u_type_immediate(instruction: u32) -> i32 {
-    (instruction & 0b1111_1111_1111_1111_1110_0000_0000_0000) as i32
+    (instruction & 0b1111_1111_1111_1111_1111_0000_0000_0000) as i32
 }
 
 /// Sign extend an input to 32 bits given a sign bit and the unsigned portion.
