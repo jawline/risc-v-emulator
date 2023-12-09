@@ -2,6 +2,21 @@ use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::opcodes::{AUIPC, JAL, JALR, LUI, OP, OP_IMM};
 
+const fn convert_i16_to_i12(value: i16) -> u16 {
+    let negative = value < 0;
+    let value = value as u16;
+
+    if negative & (value & 0b1111_1000_0000_0000 != 0b1111_1000_0000_0000) {
+        panic!("cannot convert a negative value to a i12 because it is out of range.")
+    }
+
+    if !negative & (value & 0b1111_0000_0000_0000 != 0) {
+        panic!("cannot convert a positive value to an i12 because it is out of range");
+    }
+
+    value & 0b0000_1111_1111_1111
+}
+
 const fn i_type_opcode(
     opcode: u8,
     destination_register: usize,
@@ -9,13 +24,19 @@ const fn i_type_opcode(
     funct3: u8,
     imm: u16,
 ) -> u32 {
-    if destination_register > 32
-        || source_register > 32
-        || funct3 > 0b111
-        || opcode > 0b111111
-        || imm > 0b1111_1111_1111
-    {
-        panic!("illegal operand");
+    if destination_register > 32 || source_register > 32 {
+        panic!("source or destination register out of range");
+    }
+    if funct3 > 0b111 {
+        panic!("funct3 > 3 bits");
+    }
+
+    if opcode > 0b1111111 {
+        panic!("opcode > 6 bits");
+    }
+
+    if imm > 0b1111_1111_1111 {
+        panic!("immediate value out of range");
     }
 
     let destination_register = destination_register as u32;
@@ -58,6 +79,10 @@ const fn op_opcode(
 }
 
 const fn encode_lui(destination_register: usize, value: u32) -> u32 {
+    if destination_register & !0b1111_1 != 0 {
+        panic!("destination register is larger than 5 bits");
+    }
+
     if value & 0b1111_1111_1111 != 0 {
         panic!("lower 12 bits of value in an LUI isntruction cannot be set");
     }
@@ -66,6 +91,10 @@ const fn encode_lui(destination_register: usize, value: u32) -> u32 {
 }
 
 const fn encode_auipc(destination_register: usize, value: u32) -> u32 {
+    if destination_register & !0b1111_1 != 0 {
+        panic!("destination register is larger than 5 bits");
+    }
+
     if value & 0b1111_1111_1111 != 0 {
         panic!("lower 12 bits of value in an AUI isntruction cannot be set");
     }
@@ -102,6 +131,10 @@ const fn encode_j_type_immediate(offset: i32) -> u32 {
 }
 
 const fn encode_jal(address_offset: i32, destination_register: usize) -> u32 {
+    if destination_register & !0b1111_1 != 0 {
+        panic!("destination register is larger than 5 bits");
+    }
+
     encode_j_type_immediate(address_offset) | ((destination_register as u32) << 7) | (JAL as u32)
 }
 
@@ -110,7 +143,7 @@ pub enum Instruction {
         destination_register: usize,
         source_register: usize,
         funct3: u8,
-        immediate: u16,
+        immediate: i16,
     },
     Op {
         destination_register: usize,
@@ -151,7 +184,7 @@ impl Instruction {
                 destination_register,
                 source_register,
                 funct3,
-                immediate,
+                convert_i16_to_i12(immediate),
             ),
             &Instruction::Op {
                 destination_register,
@@ -188,7 +221,7 @@ impl Instruction {
                 destination_register,
                 source_register,
                 0,
-                address_offset as u16,
+                convert_i16_to_i12(address_offset),
             ),
         }
     }
@@ -198,7 +231,7 @@ pub const fn op_imm(
     destination_register: usize,
     source_register: usize,
     funct3: u8,
-    immediate: u16,
+    immediate: i16,
 ) -> Instruction {
     Instruction::OpImm {
         destination_register,
@@ -213,7 +246,7 @@ pub const fn op_imm(
 pub const fn addi(
     destination_register: usize,
     source_register: usize,
-    immediate: u16,
+    immediate: i16,
 ) -> Instruction {
     op_imm(destination_register, source_register, ADDI, immediate)
 }
@@ -221,38 +254,38 @@ pub const fn addi(
 /// Construct a set-less-than-immediate (SLTI) instruction that will set the destination
 /// register to 1 if the register rs1 is < the sign extended immediate and set the destination
 /// register to zero otherwise.
-pub const fn slti(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn slti(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     op_imm(destination_register, source_register, SLTI, imm)
 }
 
 /// Construct a set-less-than-immediate-unsigned (SLTIU) instruction that will set the destination
 /// register to 1 if the register rs1 is < the sign extended immediate and set the destination
 /// register to zero otherwise. In SLTIU the comparison is done treating the arguments as unsigned.
-pub const fn sltiu(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn sltiu(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     op_imm(destination_register, source_register, SLTIU, imm)
 }
 
 /// Construct an XORI (exclusive or immediate) which sets the destination register to the bitwise
 /// XOR of the rs1 register with the sign extended immediate supplied.
-pub const fn xori(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn xori(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     op_imm(destination_register, source_register, XORI, imm)
 }
 
 /// Construct an ORI (or immediate) which sets the destination register to the bitwise
 /// OR of the rs1 register with the sign extended immediate supplied.
-pub const fn ori(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn ori(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     op_imm(destination_register, source_register, ORI, imm)
 }
 
 /// Construct an ANDI (and immediate) which sets the destination register to the bitwise
 /// AND of the rs1 register with the sign extended immediate supplied.
-pub const fn andi(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn andi(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     op_imm(destination_register, source_register, ANDI, imm)
 }
 
 /// Construct an SLLI (shift left by immediate) which sets the destination register to the bitwise
 /// left shift of the rs1 register by the immediate specified.
-pub const fn slli(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn slli(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     if imm > 0b11111 {
         panic!("SRLI cannot have a shift immediate of greater than 0b11111");
     }
@@ -262,7 +295,7 @@ pub const fn slli(destination_register: usize, source_register: usize, imm: u16)
 
 /// Construct an SRLI (shift left by immediate) which sets the destination register to the bitwise
 /// right shift of the rs1 register by the immediate specified.
-pub const fn srli(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn srli(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     if imm > 0b11111 {
         panic!("SRLI cannot have a shift immediate of greater than 0b11111");
     }
@@ -277,7 +310,7 @@ pub const fn srli(destination_register: usize, source_register: usize, imm: u16)
 
 /// Construct an SRLI (shift left by immediate) which sets the destination register to the
 /// arithmetic right shift of the rs1 register by the immediate specified.
-pub const fn srai(destination_register: usize, source_register: usize, imm: u16) -> Instruction {
+pub const fn srai(destination_register: usize, source_register: usize, imm: i16) -> Instruction {
     if imm > 0b11111 {
         panic!("SRLI cannot have a shift immediate of greater than 0b11111");
     }
@@ -475,11 +508,26 @@ pub const fn auipc(destination_register: usize, value: u32) -> Instruction {
     }
 }
 
-/// Construct a jump and link instruction (set pc to pc + signed 20 bit address_offset)
+/// Construct a jump and link instruction (set pc to pc + signed 20 bit address_offset. set rd to
+/// old pc + 4)
 pub const fn jal(destination_register: usize, address_offset: i32) -> Instruction {
     Instruction::Jal {
         address_offset,
         destination_register,
+    }
+}
+
+/// Construct a jump and link register instruction (set pc to rs1 + signed 12 bit address_offset.
+/// set rd to old pc + 4)
+pub const fn jalr(
+    destination_register: usize,
+    source_register: usize,
+    address_offset: i16,
+) -> Instruction {
+    Instruction::Jalr {
+        address_offset,
+        destination_register,
+        source_register,
     }
 }
 
@@ -505,6 +553,20 @@ mod test {
         let example = instruction.encode();
         assert_eq!(opcode(example), OP_IMM);
         assert_eq!(funct3(example), funct3_expected);
+        assert_eq!(rd(example), rd_expected);
+        assert_eq!(rs1(example), rs1_expected);
+        assert_eq!(i_type_immediate_32(example), imm as i32);
+    }
+
+    fn construct_test_jalr(
+        instruction: &Instruction,
+        rd_expected: usize,
+        rs1_expected: usize,
+        imm: i32,
+    ) {
+        let example = instruction.encode();
+        assert_eq!(opcode(example), JALR);
+        assert_eq!(funct3(example), 0);
         assert_eq!(rd(example), rd_expected);
         assert_eq!(rs1(example), rs1_expected);
         assert_eq!(i_type_immediate_32(example), imm as i32);
@@ -665,6 +727,9 @@ mod test {
 
     #[test]
     fn test_jalr() {
-        unimplemented!();
+        construct_test_jalr(&jalr(1, 2, 500), 1, 2, 500);
+        construct_test_jalr(&jalr(1, 2, -500), 1, 2, -500);
     }
+
+    // TODO: The OpImm instructions would be better with some negative tests
 }

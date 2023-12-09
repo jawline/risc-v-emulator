@@ -100,12 +100,12 @@ fn execute_addi() {
     test.expect_register(1, 3);
 
     // Test r2 = r1 - 1
-    test.dbg_step(&encoder::addi(2, 1, pack_negative_into_12b(-1)));
+    test.dbg_step(&encoder::addi(2, 1, -1));
     test.expect_register(1, 3);
     test.expect_register(2, 2);
 
     // Test r3 = r2 + 4
-    test.dbg_step(&encoder::addi(3, 2, pack_negative_into_12b(4)));
+    test.dbg_step(&encoder::addi(3, 2, 4));
     test.expect_register(1, 3);
     test.expect_register(2, 2);
     test.expect_register(3, 6);
@@ -145,11 +145,11 @@ fn execute_slti() {
 
     // Test negative
     test.set_register(1, -5000);
-    test.dbg_step(&encoder::slti(2, 1, pack_negative_into_12b(-2048)));
+    test.dbg_step(&encoder::slti(2, 1, -2048));
     test.expect_register(2, 1);
 
     test.set_register(1, -2000);
-    test.dbg_step(&encoder::slti(2, 1, pack_negative_into_12b(-2048)));
+    test.dbg_step(&encoder::slti(2, 1, -2048));
     test.expect_register(2, 0);
 }
 
@@ -453,7 +453,6 @@ fn execute_auipc() {
 #[test]
 fn execute_jal() {
     let mut test = init();
-    let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
     test.set_pc(5000);
     test.set_register(1, -1);
     test.dbg_step_jmp(&encoder::jal(1, 500), 5500);
@@ -467,7 +466,17 @@ fn execute_jal() {
 
 #[test]
 fn execute_jalr() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 9000);
+    test.dbg_step_jmp(&encoder::jalr(1, 1, 500), 9500);
+    test.expect_register(1, 9004);
+
+    test.set_pc(5000);
+    test.set_register(1, 9000);
+    test.dbg_step_jmp(&encoder::jalr(2, 1, -500), 8500);
+    test.expect_register(2, 9004);
 }
 
 #[test]
