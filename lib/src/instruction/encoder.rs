@@ -1,6 +1,6 @@
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::opcodes::{AUIPC, JAL, LUI, OP, OP_IMM};
+use super::opcodes::{AUIPC, JAL, JALR, LUI, OP, OP_IMM};
 
 const fn i_type_opcode(
     opcode: u8,
@@ -78,7 +78,7 @@ const fn encode_j_type_immediate(offset: i32) -> u32 {
     let value = offset as u32;
 
     // Negative values have all leading 1s, positive values have all leading zeros.
-    if (value & 0b1 != 0) {
+    if value & 0b1 != 0 {
         panic!("j-type immediate cannot have the lsb set");
     }
 
@@ -89,7 +89,7 @@ const fn encode_j_type_immediate(offset: i32) -> u32 {
         panic!("negative j-type immediate must have all leading 1s");
     }
 
-    if (!negative && (value & 0b1111_1111_1110_0000_0000_0000_0000_0000u32) != 0) {
+    if !negative && (value & 0b1111_1111_1110_0000_0000_0000_0000_0000u32) != 0 {
         panic!("j-type immediates must be 20 bytes and not have the lsb set");
     }
 
@@ -101,8 +101,8 @@ const fn encode_j_type_immediate(offset: i32) -> u32 {
     (bit_twenty << 31) | (bit_eleven << 20) | (bits_ten_to_one << 21) | (bits_19_to_12 << 12)
 }
 
-const fn encode_jal(address_offset: i32) -> u32 {
-    encode_j_type_immediate(address_offset) | (JAL as u32)
+const fn encode_jal(address_offset: i32, destination_register: usize) -> u32 {
+    encode_j_type_immediate(address_offset) | ((destination_register as u32) << 7) | (JAL as u32)
 }
 
 pub enum Instruction {
@@ -128,7 +128,13 @@ pub enum Instruction {
         value: u32,
     },
     Jal {
+        destination_register: usize,
         address_offset: i32,
+    },
+    Jalr {
+        destination_register: usize,
+        source_register: usize,
+        address_offset: i16,
     },
 }
 
@@ -169,7 +175,21 @@ impl Instruction {
                 destination_register,
                 value,
             } => encode_auipc(destination_register, value),
-            &Instruction::Jal { address_offset } => encode_jal(address_offset),
+            &Instruction::Jal {
+                address_offset,
+                destination_register,
+            } => encode_jal(address_offset, destination_register),
+            &Instruction::Jalr {
+                destination_register,
+                source_register,
+                address_offset,
+            } => i_type_opcode(
+                JALR as u8,
+                destination_register,
+                source_register,
+                0,
+                address_offset as u16,
+            ),
         }
     }
 }
@@ -456,8 +476,11 @@ pub const fn auipc(destination_register: usize, value: u32) -> Instruction {
 }
 
 /// Construct a jump and link instruction (set pc to pc + signed 20 bit address_offset)
-pub const fn jal(address_offset: i32) -> Instruction {
-    Instruction::Jal { address_offset }
+pub const fn jal(destination_register: usize, address_offset: i32) -> Instruction {
+    Instruction::Jal {
+        address_offset,
+        destination_register,
+    }
 }
 
 /// Construct a canonical no-op.
@@ -630,11 +653,18 @@ mod test {
 
     #[test]
     fn test_jal() {
-        let op = jal(500).encode();
+        let op = jal(3, 500).encode();
         assert_eq!(opcode(op), JAL);
+        assert_eq!(rd(op), 3);
         assert_eq!(j_type_immediate_32(op), 500);
-        let op = jal(-500).encode();
+        let op = jal(2, -500).encode();
         assert_eq!(opcode(op), JAL);
+        assert_eq!(rd(op), 2);
         assert_eq!(j_type_immediate_32(op), -500);
+    }
+
+    #[test]
+    fn test_jalr() {
+        unimplemented!();
     }
 }

@@ -456,11 +456,13 @@ fn execute_jal() {
     let value = 0b1101_1111_0101_1010_0101_0000_0000_0000u32;
     test.set_pc(5000);
     test.set_register(1, -1);
-    test.dbg_step_jmp(&encoder::jal(500), 5500);
+    test.dbg_step_jmp(&encoder::jal(1, 500), 5500);
+    test.expect_register(1, 5004);
 
     test.set_pc(5000);
     test.set_register(1, -1);
-    test.dbg_step_jmp(&encoder::jal(-500), 4500);
+    test.dbg_step_jmp(&encoder::jal(2, -500), 4500);
+    test.expect_register(2, 5004);
 }
 
 #[test]
