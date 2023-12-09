@@ -1,6 +1,6 @@
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::opcodes::{AUIPC, LUI, OP, OP_IMM};
+use super::opcodes::{AUIPC, JAL, LUI, OP, OP_IMM};
 
 const fn i_type_opcode(
     opcode: u8,
@@ -73,6 +73,38 @@ const fn encode_auipc(destination_register: usize, value: u32) -> u32 {
     value | ((destination_register as u32) << 7) | (AUIPC as u32)
 }
 
+const fn encode_j_type_immediate(offset: i32) -> u32 {
+    let negative = offset < 0;
+    let value = offset as u32;
+
+    // Negative values have all leading 1s, positive values have all leading zeros.
+    if (value & 0b1 != 0) {
+        panic!("j-type immediate cannot have the lsb set");
+    }
+
+    if negative
+        && ((value & 0b1111_1111_1110_0000_0000_0000_0000_0000u32)
+            != 0b1111_1111_1110_0000_0000_0000_0000_0000u32)
+    {
+        panic!("negative j-type immediate must have all leading 1s");
+    }
+
+    if (!negative && (value & 0b1111_1111_1110_0000_0000_0000_0000_0000u32) != 0) {
+        panic!("j-type immediates must be 20 bytes and not have the lsb set");
+    }
+
+    let bit_twenty = value >> 31;
+    let bit_eleven = (value & 0b0000_0000_0100_0000_0000) >> 10;
+    let bits_ten_to_one = (value & 0b111_1111_1110) >> 1;
+    let bits_19_to_12 = (value & 0b0111_1111_1000_0000_0000) >> 11;
+
+    (bit_twenty << 31) | (bit_eleven << 20) | (bits_ten_to_one << 21) | (bits_19_to_12 << 12)
+}
+
+const fn encode_jal(address_offset: i32) -> u32 {
+    encode_j_type_immediate(address_offset) | (JAL as u32)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -94,6 +126,9 @@ pub enum Instruction {
     Auipc {
         destination_register: usize,
         value: u32,
+    },
+    Jal {
+        address_offset: i32,
     },
 }
 
@@ -134,6 +169,7 @@ impl Instruction {
                 destination_register,
                 value,
             } => encode_auipc(destination_register, value),
+            &Instruction::Jal { address_offset } => encode_jal(address_offset),
         }
     }
 }
@@ -419,6 +455,11 @@ pub const fn auipc(destination_register: usize, value: u32) -> Instruction {
     }
 }
 
+/// Construct a jump and link instruction (set pc to pc + signed 20 bit address_offset)
+pub const fn jal(address_offset: i32) -> Instruction {
+    Instruction::Jal { address_offset }
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -585,5 +626,15 @@ mod test {
         assert_eq!(opcode(op), AUIPC);
         assert_eq!(rd(op), 5);
         assert_eq!(op >> 12, value >> 12);
+    }
+
+    #[test]
+    fn test_jal() {
+        let op = jal(500).encode();
+        assert_eq!(opcode(op), JAL);
+        assert_eq!(j_type_immediate_32(op), 500);
+        let op = jal(-500).encode();
+        assert_eq!(opcode(op), JAL);
+        assert_eq!(j_type_immediate_32(op), -500);
     }
 }
