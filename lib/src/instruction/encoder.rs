@@ -1,4 +1,4 @@
-use super::funct3::branch::{BEQ, BGE, BLT, BNE};
+use super::funct3::branch::{BEQ, BGE, BLT, BNE, BLTU, BGEU};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LUI, OP, OP_IMM};
@@ -658,6 +658,36 @@ pub const fn bge(
     }
 }
 
+/// Construct a branch-less-than-unsigned operation that will branch to pc + (signed 13-bit branch offset) if
+/// rs1 is less than rs2 (unsigned). Otherwise it proceeds to the next instruction.
+pub const fn bltu(
+    source_register1: usize,
+    source_register2: usize,
+    branch_offset: i16,
+) -> Instruction {
+    Instruction::Branch {
+        funct3: BLTU as u8,
+        source_register1,
+        source_register2,
+        branch_offset,
+    }
+}
+
+/// Construct a branch-greater-than-or-equal-unsigned operation that will branch to pc + (signed 13-bit branch offset) if
+/// rs1 is greater than or equal to rs2 (unsigned). Otherwise it proceeds to the next instruction.
+pub const fn bgeu(
+    source_register1: usize,
+    source_register2: usize,
+    branch_offset: i16,
+) -> Instruction {
+    Instruction::Branch {
+        funct3: BGEU as u8,
+        source_register1,
+        source_register2,
+        branch_offset,
+    }
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -895,6 +925,18 @@ mod test {
     fn test_bge() {
         construct_test_branch(&bge(1, 2, 500), BGE as u8, 1, 2, 500);
         construct_test_branch(&bge(1, 2, -500), BGE as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_bltu() {
+        construct_test_branch(&bltu(1, 2, 500), BLTU as u8, 1, 2, 500);
+        construct_test_branch(&bltu(1, 2, -500), BLTU as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_bgeu() {
+        construct_test_branch(&bgeu(1, 2, 500), BGEU as u8, 1, 2, 500);
+        construct_test_branch(&bgeu(1, 2, -500), BGEU as u8, 1, 2, -500);
     }
 
     // TODO: The OpImm instructions would be better with some negative tests
