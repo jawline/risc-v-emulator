@@ -176,6 +176,11 @@ fn apply_branch<F: Fn(i32, i32) -> bool>(op: &mut OpArgs, f: F) {
     } else {
         op.state.registers.pc += INSTRUCTION_SIZE;
     }
+
+    // If the new PC is not a multiple of 4 we trap
+    if op.state.registers.pc & 0b11 != 0 {
+        trap_unaligned_instruction(op);
+    }
 }
 
 /// Identical to apply_branch but comparisons are done on the unsigned interpretation of the

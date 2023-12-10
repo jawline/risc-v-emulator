@@ -1,6 +1,7 @@
+use super::funct3::branch::{BEQ, BGE, BLT, BNE};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::opcodes::{AUIPC, JAL, JALR, LUI, OP, OP_IMM};
+use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LUI, OP, OP_IMM};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
     let negative = value < 0;
@@ -138,6 +139,60 @@ const fn encode_jal(address_offset: i32, destination_register: usize) -> u32 {
     encode_j_type_immediate(address_offset) | ((destination_register as u32) << 7) | (JAL as u32)
 }
 
+// Encode a 13-bit signed immediate into it's B-type intstruction format.
+// The LSB must be 0 because the 13 bits are packed into 12b
+const fn encode_b_type_immediate(value: i16) -> u32 {
+    let negative = value < 0;
+    let value = value as u16;
+
+    if value & 0b1 != 0 {
+        panic!("LSB of a B-type immediate must not be set");
+    }
+
+    if negative && ((value & 0b1111_0000_0000_0000) != 0b1111_0000_0000_0000) {
+        panic!("negative value lower than the minimum value for a B-type immediate");
+    }
+
+    if (!negative) && ((value & 0b1111_0000_0000_0000) != 0) {
+        panic!("positive value too large for B-type immediate");
+    }
+
+    // The input is 13 bits compressed into 12 (assuming v & 1 == 0)
+    let value = ((value & 0b1_1111_1111_1111) >> 1) as u32;
+
+    let bit_twelve = (value & 0b1000_0000_0000) >> 11;
+    let bit_eleven = (value & 0b0100_0000_0000) >> 10;
+    let bits_ten_to_five = (value & 0b0011_1111_0000) >> 4;
+    let lower_four_bits = value & 0b1111;
+
+    (bit_twelve << 31) | (bit_eleven << 7) | (lower_four_bits << 8) | (bits_ten_to_five << 25)
+}
+
+const fn encode_branch(
+    funct3: u8,
+    source_register1: usize,
+    source_register2: usize,
+    branch_offset: i16,
+) -> u32 {
+    if source_register1 > 0b11111 {
+        panic!("source register 1 outside of valid range");
+    }
+
+    if source_register2 > 0b11111 {
+        panic!("source register 2 outside of valid range");
+    }
+
+    if funct3 > 0b111 {
+        panic!("funct3 outside of valid range");
+    }
+
+    (BRANCH as u32)
+        | ((funct3 as u32) << 12)
+        | ((source_register1 as u32) << 15)
+        | ((source_register2 as u32) << 20)
+        | (encode_b_type_immediate(branch_offset))
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -168,6 +223,12 @@ pub enum Instruction {
         destination_register: usize,
         source_register: usize,
         address_offset: i16,
+    },
+    Branch {
+        funct3: u8,
+        source_register1: usize,
+        source_register2: usize,
+        branch_offset: i16,
     },
 }
 
@@ -223,6 +284,12 @@ impl Instruction {
                 0,
                 convert_i16_to_i12(address_offset),
             ),
+            &Instruction::Branch {
+                funct3,
+                source_register1,
+                source_register2,
+                branch_offset,
+            } => encode_branch(funct3, source_register1, source_register2, branch_offset),
         }
     }
 }
@@ -531,6 +598,66 @@ pub const fn jalr(
     }
 }
 
+/// Construct a branch-equal operation that will branch to pc + (signed 13-bit branch offset) if
+/// rs1 and rs2 are equal. Otherwise it proceeds to the next instruction.
+pub const fn beq(
+    source_register1: usize,
+    source_register2: usize,
+    branch_offset: i16,
+) -> Instruction {
+    Instruction::Branch {
+        funct3: BEQ as u8,
+        source_register1,
+        source_register2,
+        branch_offset,
+    }
+}
+
+/// Construct a branch-not-equal operation that will branch to pc + (signed 13-bit branch offset) if
+/// rs1 and rs2 are not equal. Otherwise it proceeds to the next instruction.
+pub const fn bne(
+    source_register1: usize,
+    source_register2: usize,
+    branch_offset: i16,
+) -> Instruction {
+    Instruction::Branch {
+        funct3: BNE as u8,
+        source_register1,
+        source_register2,
+        branch_offset,
+    }
+}
+
+/// Construct a branch-less-than operation that will branch to pc + (signed 13-bit branch offset) if
+/// rs1 is less than rs2. Otherwise it proceeds to the next instruction.
+pub const fn blt(
+    source_register1: usize,
+    source_register2: usize,
+    branch_offset: i16,
+) -> Instruction {
+    Instruction::Branch {
+        funct3: BLT as u8,
+        source_register1,
+        source_register2,
+        branch_offset,
+    }
+}
+
+/// Construct a branch-greater-than-or-equal operation that will branch to pc + (signed 13-bit branch offset) if
+/// rs1 is greater than or equal to rs2. Otherwise it proceeds to the next instruction.
+pub const fn bge(
+    source_register1: usize,
+    source_register2: usize,
+    branch_offset: i16,
+) -> Instruction {
+    Instruction::Branch {
+        funct3: BGE as u8,
+        source_register1,
+        source_register2,
+        branch_offset,
+    }
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -556,6 +683,21 @@ mod test {
         assert_eq!(rd(example), rd_expected);
         assert_eq!(rs1(example), rs1_expected);
         assert_eq!(i_type_immediate_32(example), imm as i32);
+    }
+
+    fn construct_test_branch(
+        instruction: &Instruction,
+        funct3_expected: u8,
+        source_register1_expected: usize,
+        source_register2_expected: usize,
+        branch_offset_expected: i16,
+    ) {
+        let example = instruction.encode();
+        assert_eq!(opcode(example), BRANCH);
+        assert_eq!(funct3(example), funct3_expected);
+        assert_eq!(rs1(example), source_register1_expected);
+        assert_eq!(rs2(example), source_register2_expected);
+        assert_eq!(b_type_immediate_32(example), branch_offset_expected as i32);
     }
 
     fn construct_test_jalr(
@@ -729,6 +871,30 @@ mod test {
     fn test_jalr() {
         construct_test_jalr(&jalr(1, 2, 500), 1, 2, 500);
         construct_test_jalr(&jalr(1, 2, -500), 1, 2, -500);
+    }
+
+    #[test]
+    fn test_beq() {
+        construct_test_branch(&beq(1, 2, 500), BEQ as u8, 1, 2, 500);
+        construct_test_branch(&beq(1, 2, -500), BEQ as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_bne() {
+        construct_test_branch(&bne(1, 2, 500), BNE as u8, 1, 2, 500);
+        construct_test_branch(&bne(1, 2, -500), BNE as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_blt() {
+        construct_test_branch(&blt(1, 2, 500), BLT as u8, 1, 2, 500);
+        construct_test_branch(&blt(1, 2, -500), BLT as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_bge() {
+        construct_test_branch(&bge(1, 2, 500), BGE as u8, 1, 2, 500);
+        construct_test_branch(&bge(1, 2, -500), BGE as u8, 1, 2, -500);
     }
 
     // TODO: The OpImm instructions would be better with some negative tests
