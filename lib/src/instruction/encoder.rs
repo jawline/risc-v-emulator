@@ -898,4 +898,6 @@ mod test {
     }
 
     // TODO: The OpImm instructions would be better with some negative tests
+    // TODO: All signed and unsigned immediates should have tests for the extrema (MAX_INT and 0 or
+    // MIN_INT)
 }
