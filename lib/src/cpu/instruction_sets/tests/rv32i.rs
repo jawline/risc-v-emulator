@@ -495,13 +495,30 @@ fn execute_beq() {
 
 
     test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step_jmp(&encoder::beq(1, 0, -500), 4500);
+
+
+    test.set_pc(5000);
     test.set_register(1, 500);
     test.dbg_step(&encoder::beq(1, 0, 500));
 }
 
 #[test]
 fn execute_bne() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step(&encoder::bne(1, 0, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, 500);
+    test.dbg_step_jmp(&encoder::bne(1, 0, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, 500);
+    test.dbg_step_jmp(&encoder::bne(1, 0, -500), 4500);
 }
 
 #[test]
