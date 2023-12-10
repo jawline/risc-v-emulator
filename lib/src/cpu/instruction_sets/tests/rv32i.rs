@@ -486,7 +486,17 @@ fn execute_jalr_result_is_misaligned() {
 
 #[test]
 fn execute_beq() {
-    unimplemented!();
+
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step_jmp(&encoder::beq(1, 0, 500), 5500);
+
+
+    test.set_pc(5000);
+    test.set_register(1, 500);
+    test.dbg_step(&encoder::beq(1, 0, 500));
 }
 
 #[test]

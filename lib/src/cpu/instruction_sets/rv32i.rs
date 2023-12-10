@@ -203,8 +203,6 @@ fn branch(op: &mut OpArgs) {
             panic!("funct3 parameter should not be > 0b111. This is an emulation bug.")
         }
     };
-
-    op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
 /// Apply the load function. This computes the address of the load and then passes the addres to a
