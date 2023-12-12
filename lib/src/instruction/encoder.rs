@@ -2,6 +2,7 @@ use super::funct3::branch::{BEQ, BGE, BGEU, BLT, BLTU, BNE};
 use super::funct3::load::{LB, LH, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
+use super::funct3::store::{SB, SH, SW};
 use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
@@ -265,8 +266,8 @@ pub enum Instruction {
     },
     Store {
         funct3: u8,
-        source_register: usize,
-        destination_register: usize,
+        source_register1: usize,
+        source_register2: usize,
         offset: i16,
     },
     Load {
@@ -337,10 +338,10 @@ impl Instruction {
             } => encode_branch(funct3, source_register1, source_register2, branch_offset),
             &Instruction::Store {
                 funct3,
-                source_register,
-                destination_register,
+                source_register1,
+                source_register2,
                 offset,
-            } => encode_memory_op(STORE, funct3, destination_register, source_register, offset),
+            } => encode_memory_op(STORE, funct3, source_register1, source_register2, offset),
 
             &Instruction::Load {
                 funct3,
@@ -779,6 +780,39 @@ pub const fn lw(source_register: usize, destination_register: usize, offset: i16
     }
 }
 
+/// Construct a store-byte operation that will store a byte from source_register2 at [source_register1 + offset]
+/// and place it in the destination register.
+pub const fn sb(source_register1: usize, source_register2: usize, offset: i16) -> Instruction {
+    Instruction::Store {
+        funct3: SB as u8,
+        source_register1,
+        source_register2,
+        offset,
+    }
+}
+
+/// Construct a store-half operation that will store a byte from source_register2 at [source_register1 + offset]
+/// and place it in the destination register.
+pub const fn sh(source_register1: usize, source_register2: usize, offset: i16) -> Instruction {
+    Instruction::Store {
+        funct3: SH as u8,
+        source_register1,
+        source_register2,
+        offset,
+    }
+}
+
+/// Construct a store-half operation that will store a byte from source_register2 at [source_register1 + offset]
+/// and place it in the destination register.
+pub const fn sw(source_register1: usize, source_register2: usize, offset: i16) -> Instruction {
+    Instruction::Store {
+        funct3: SW as u8,
+        source_register1,
+        source_register2,
+        offset,
+    }
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -834,6 +868,21 @@ mod test {
         assert_eq!(rs1(example), source_register_expected);
         assert_eq!(rd(example), dest_register_expected);
         assert_eq!(i_type_immediate_32(example), offset_expected as i32);
+    }
+
+    fn construct_test_store(
+        instruction: &Instruction,
+        funct3_expected: u8,
+        source_register_expected: usize,
+        source_register_2_expected: usize,
+        offset_expected: i16,
+    ) {
+        let example = instruction.encode();
+        assert_eq!(opcode(example), STORE);
+        assert_eq!(funct3(example), funct3_expected);
+        assert_eq!(rs1(example), source_register_expected);
+        assert_eq!(rs2(example), source_register_2_expected);
+        assert_eq!(s_type_immediate_32(example), offset_expected as i32);
     }
 
     fn construct_test_jalr(
@@ -1061,6 +1110,24 @@ mod test {
     fn test_lw() {
         construct_test_load(&lw(1, 2, 500), LW as u8, 1, 2, 500);
         construct_test_load(&lw(1, 2, -500), LW as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_sb() {
+        construct_test_load(&sb(1, 2, 500), SB as u8, 1, 2, 500);
+        construct_test_load(&sb(1, 2, -500), SB as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_sh() {
+        construct_test_load(&sh(1, 2, 500), SH as u8, 1, 2, 500);
+        construct_test_load(&sh(1, 2, -500), SH as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_sw() {
+        construct_test_load(&sw(1, 2, 500), SW as u8, 1, 2, 500);
+        construct_test_load(&sw(1, 2, -500), SW as u8, 1, 2, -500);
     }
 
     // TODO: The OpImm instructions would be better with some negative tests
