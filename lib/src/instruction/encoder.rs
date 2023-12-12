@@ -1,4 +1,4 @@
-use super::funct3::branch::{BEQ, BGE, BLT, BNE, BLTU, BGEU};
+use super::funct3::branch::{BEQ, BGE, BGEU, BLT, BLTU, BNE};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LUI, OP, OP_IMM};

@@ -486,18 +486,15 @@ fn execute_jalr_result_is_misaligned() {
 
 #[test]
 fn execute_beq() {
-
     let mut test = init();
 
     test.set_pc(5000);
     test.set_register(1, 0);
     test.dbg_step_jmp(&encoder::beq(1, 0, 500), 5500);
 
-
     test.set_pc(5000);
     test.set_register(1, 0);
     test.dbg_step_jmp(&encoder::beq(1, 0, -500), 4500);
-
 
     test.set_pc(5000);
     test.set_register(1, 500);
@@ -523,22 +520,102 @@ fn execute_bne() {
 
 #[test]
 fn execute_blt() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step(&encoder::blt(1, 0, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, 1);
+    test.dbg_step(&encoder::blt(1, 0, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, -1);
+    test.dbg_step_jmp(&encoder::blt(1, 0, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, -1);
+    test.dbg_step_jmp(&encoder::blt(1, 0, -500), 4500);
 }
 
 #[test]
 fn execute_bge() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, -1);
+    test.dbg_step(&encoder::bge(1, 0, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step_jmp(&encoder::bge(1, 0, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step_jmp(&encoder::bge(1, 0, -500), 4500);
+
+    test.set_pc(5000);
+    test.set_register(1, 1);
+    test.dbg_step_jmp(&encoder::bge(1, 0, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, 1);
+    test.dbg_step_jmp(&encoder::bge(1, 0, -500), 4500);
 }
 
 #[test]
 fn execute_bltu() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step(&encoder::bltu(1, 0, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, 1);
+    test.dbg_step(&encoder::bltu(1, 0, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, -1);
+    test.dbg_step(&encoder::bltu(1, 0, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.set_register(2, 50);
+    test.dbg_step_jmp(&encoder::bltu(1, 2, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.set_register(2, 50);
+    test.dbg_step_jmp(&encoder::bltu(1, 2, -500), 4500);
 }
 
 #[test]
 fn execute_bgeu() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.dbg_step_jmp(&encoder::bgeu(1, 0, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, 1);
+    test.dbg_step_jmp(&encoder::bgeu(1, 0, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, -1);
+    test.dbg_step_jmp(&encoder::bgeu(1, 0, 500), 5500);
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.set_register(2, 50);
+    test.dbg_step(&encoder::bgeu(1, 2, 500));
+
+    test.set_pc(5000);
+    test.set_register(1, 0);
+    test.set_register(2, 50);
+    test.dbg_step(&encoder::bgeu(1, 2, -500));
 }
 
 #[test]
