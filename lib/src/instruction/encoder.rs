@@ -1,7 +1,7 @@
 use super::funct3::branch::{BEQ, BGE, BGEU, BLT, BLTU, BNE};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
-use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LUI, OP, OP_IMM};
+use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
     let negative = value < 0;
@@ -193,6 +193,38 @@ const fn encode_branch(
         | (encode_b_type_immediate(branch_offset))
 }
 
+const fn encode_memory_op(
+    opcode: usize,
+    funct3: u8,
+    destination_register: usize,
+    source_register: usize,
+    offset: i16,
+) -> u32 {
+    if source_register > 0b11111 {
+        panic!("source register outside of valid range");
+    }
+
+    if destination_register > 0b11111 {
+        panic!("source register outside of valid range");
+    }
+
+    if funct3 > 0b111 {
+        panic!("funct3 out of range");
+    }
+
+    if opcode > 0b1111111 {
+        panic!("opcode out of range");
+    }
+
+    let offset = convert_i16_to_i12(offset);
+
+    (opcode as u32)
+        | ((destination_register as u32) << 7)
+        | ((funct3 as u32) << 12)
+        | ((source_register as u32) << 15)
+        | ((offset as u32) << 20)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -229,6 +261,18 @@ pub enum Instruction {
         source_register1: usize,
         source_register2: usize,
         branch_offset: i16,
+    },
+    Store {
+        funct3: u8,
+        source_register: usize,
+        destination_register: usize,
+        offset: i16,
+    },
+    Load {
+        funct3: u8,
+        source_register: usize,
+        destination_register: usize,
+        offset: i16,
     },
 }
 
@@ -290,6 +334,19 @@ impl Instruction {
                 source_register2,
                 branch_offset,
             } => encode_branch(funct3, source_register1, source_register2, branch_offset),
+            &Instruction::Store {
+                funct3,
+                source_register,
+                destination_register,
+                offset,
+            } => encode_memory_op(STORE, funct3, destination_register, source_register, offset),
+
+            &Instruction::Load {
+                funct3,
+                source_register,
+                destination_register,
+                offset,
+            } => encode_memory_op(LOAD, funct3, destination_register, source_register, offset),
         }
     }
 }
