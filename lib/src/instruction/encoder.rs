@@ -1,4 +1,5 @@
 use super::funct3::branch::{BEQ, BGE, BGEU, BLT, BLTU, BNE};
+use super::funct3::load::{LB, LH, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
@@ -745,6 +746,39 @@ pub const fn bgeu(
     }
 }
 
+/// Construct a load-byte operation that will load a byte from [source_register + offset]
+/// and place it in the destination register.
+pub const fn lb(source_register: usize, destination_register: usize, offset: i16) -> Instruction {
+    Instruction::Load {
+        funct3: LB as u8,
+        source_register,
+        destination_register,
+        offset,
+    }
+}
+
+/// Construct a load-half-word operation that will load a short from [source_register + offset]
+/// and place it in the destination register.
+pub const fn lh(source_register: usize, destination_register: usize, offset: i16) -> Instruction {
+    Instruction::Load {
+        funct3: LH as u8,
+        source_register,
+        destination_register,
+        offset,
+    }
+}
+
+/// Construct a load-word operation that will load a short from [source_register + offset]
+/// and place it in the destination register.
+pub const fn lw(source_register: usize, destination_register: usize, offset: i16) -> Instruction {
+    Instruction::Load {
+        funct3: LW as u8,
+        source_register,
+        destination_register,
+        offset,
+    }
+}
+
 /// Construct a canonical no-op.
 ///
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
@@ -785,6 +819,21 @@ mod test {
         assert_eq!(rs1(example), source_register1_expected);
         assert_eq!(rs2(example), source_register2_expected);
         assert_eq!(b_type_immediate_32(example), branch_offset_expected as i32);
+    }
+
+    fn construct_test_load(
+        instruction: &Instruction,
+        funct3_expected: u8,
+        source_register_expected: usize,
+        dest_register_expected: usize,
+        offset_expected: i16,
+    ) {
+        let example = instruction.encode();
+        assert_eq!(opcode(example), LOAD);
+        assert_eq!(funct3(example), funct3_expected);
+        assert_eq!(rs1(example), source_register_expected);
+        assert_eq!(rd(example), dest_register_expected);
+        assert_eq!(i_type_immediate_32(example), offset_expected as i32);
     }
 
     fn construct_test_jalr(
@@ -994,6 +1043,24 @@ mod test {
     fn test_bgeu() {
         construct_test_branch(&bgeu(1, 2, 500), BGEU as u8, 1, 2, 500);
         construct_test_branch(&bgeu(1, 2, -500), BGEU as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_lb() {
+        construct_test_load(&lb(1, 2, 500), LB as u8, 1, 2, 500);
+        construct_test_load(&lb(1, 2, -500), LB as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_lh() {
+        construct_test_load(&lh(1, 2, 500), LH as u8, 1, 2, 500);
+        construct_test_load(&lh(1, 2, -500), LH as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_lw() {
+        construct_test_load(&lw(1, 2, 500), LW as u8, 1, 2, 500);
+        construct_test_load(&lw(1, 2, -500), LW as u8, 1, 2, -500);
     }
 
     // TODO: The OpImm instructions would be better with some negative tests
