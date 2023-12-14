@@ -1,8 +1,8 @@
 use super::funct3::branch::{BEQ, BGE, BGEU, BLT, BLTU, BNE};
-use super::funct3::load::{LB, LH, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::funct3::store::{SB, SH, SW};
+use super::funct3::load::{LB, LH, LW, LBU, LHU};
 use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
@@ -794,6 +794,29 @@ pub const fn lh(source_register: usize, destination_register: usize, offset: i16
     }
 }
 
+
+/// Construct a load-byte-unsigned operation that will load a byte from [source_register + offset]
+/// and place it in the destination register. The byte will not be sign extended.
+pub const fn lbu(source_register: usize, destination_register: usize, offset: i16) -> Instruction {
+    Instruction::Load {
+        funct3: LBU as u8,
+        source_register,
+        destination_register,
+        offset,
+    }
+}
+
+/// Construct a load-half-word operation that will load a short from [source_register + offset]
+/// and place it in the destination register. The half will not be sign extended.
+pub const fn lhu(source_register: usize, destination_register: usize, offset: i16) -> Instruction {
+    Instruction::Load {
+        funct3: LHU as u8,
+        source_register,
+        destination_register,
+        offset,
+    }
+}
+
 /// Construct a load-word operation that will load a short from [source_register + offset]
 /// and place it in the destination register.
 pub const fn lw(source_register: usize, destination_register: usize, offset: i16) -> Instruction {
@@ -1129,6 +1152,19 @@ mod test {
     fn test_lh() {
         construct_test_load(&lh(1, 2, 500), LH as u8, 1, 2, 500);
         construct_test_load(&lh(1, 2, -500), LH as u8, 1, 2, -500);
+    }
+
+
+    #[test]
+    fn test_lbu() {
+        construct_test_load(&lbu(1, 2, 500), LBU as u8, 1, 2, 500);
+        construct_test_load(&lbu(1, 2, -500), LBU as u8, 1, 2, -500);
+    }
+
+    #[test]
+    fn test_lhu() {
+        construct_test_load(&lhu(1, 2, 500), LHU as u8, 1, 2, 500);
+        construct_test_load(&lhu(1, 2, -500), LHU as u8, 1, 2, -500);
     }
 
     #[test]
