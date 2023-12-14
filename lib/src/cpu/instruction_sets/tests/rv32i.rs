@@ -800,10 +800,12 @@ fn execute_sw() {
 
 #[test]
 fn execute_fence() {
-    unimplemented!();
+    let mut test = init();
+    test.dbg_step(&encoder::fence());
 }
 
 #[test]
 fn execute_fence_i() {
-    unimplemented!();
+    let mut test = init();
+    test.dbg_step(&encoder::fence_i());
 }

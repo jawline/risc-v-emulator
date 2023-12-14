@@ -194,7 +194,7 @@ mod test {
     fn test_u_type_immediate() {
         // Test zero
         assert_eq!(
-            u_type_immediate(0b0000_0000_0000_0000_0001_0101_0101_0110),
+            u_type_immediate(0b0000_0000_0000_0000_0000_0101_0101_0110),
             0
         );
 

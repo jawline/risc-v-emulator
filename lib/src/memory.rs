@@ -159,11 +159,49 @@ mod test {
 
     #[test]
     fn simple_32_bit_memory_tests() {
-        unimplemented!();
+        let mut mem = Memory::new(256);
+        for i in (0..256).step_by(4) {
+            assert_eq!(mem.get32(i), Ok(0));
+        }
+
+        for i in (0..256).step_by(4) {
+            mem.set32(i, 4096_u32 - (i as u32)).unwrap();
+        }
+
+        for i in (0..256).step_by(4) {
+            assert_eq!(mem.get32(i), Ok(4096_u32 - (i as u32)));
+        }
+
+        for i in (0..256).step_by(4) {
+            mem.set32(i, 0).unwrap();
+        }
+
+        for i in (0..256).step_by(4) {
+            assert_eq!(mem.get32(i), Ok(0));
+        }
     }
 
     #[test]
     fn simple_32_bit_memory_boundry_tests() {
-        unimplemented!();
+        let mut mem = Memory::new(256);
+
+        if let Err(_) = mem.set32(254, 0) {
+        } else {
+            panic!("expected write to fail");
+        }
+
+        if let Err(_) = mem.get32(254) {
+        } else {
+            panic!("expected read to fail");
+        }
+
+        if let Err(_) = mem.set32(4096, 0) {
+        } else {
+            panic!("expected write to fail");
+        }
+        if let Err(_) = mem.get32(4096) {
+        } else {
+            panic!("expected read to fail");
+        }
     }
 }

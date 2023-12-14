@@ -3,7 +3,7 @@ use super::funct3::load::{LB, LBU, LH, LHU, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::funct3::store::{SB, SH, SW};
-use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
+use super::opcodes::{AUIPC, BRANCH, FENCE, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
     let negative = value < 0;
@@ -252,6 +252,22 @@ const fn encode_store(
         | ((upper_7_bits as u32) << 25)
 }
 
+const fn encode_fence(funct3: u8, pred: u8, succ: u8) -> u32 {
+    if funct3 != 0 && funct3 != 1 {
+        panic!("fence funct3 must be zero or 1");
+    }
+
+    if pred > 0b1111 {
+        panic!("pred cannot be > 0b1111");
+    }
+
+    if succ > 0b1111 {
+        panic!("succ cannot be > 0b1111");
+    }
+
+    (FENCE as u32) | ((funct3 as u32) << 7) | ((pred as u32) << 24) | ((succ as u32) << 20)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -301,6 +317,11 @@ pub enum Instruction {
         destination_register: usize,
         offset: i16,
     },
+    Fence {
+        pred: u8,
+        succ: u8,
+    },
+    FenceI {},
 }
 
 impl Instruction {
@@ -367,13 +388,14 @@ impl Instruction {
                 source_register2,
                 offset,
             } => encode_store(funct3, source_register1, source_register2, offset),
-
             &Instruction::Load {
                 funct3,
                 source_register,
                 destination_register,
                 offset,
             } => encode_load(funct3, destination_register, source_register, offset),
+            &Instruction::Fence { pred, succ } => encode_fence(0, pred, succ),
+            &Instruction::FenceI {} => encode_fence(1, 0, 0),
         }
     }
 }
@@ -865,6 +887,16 @@ pub const fn sw(source_register1: usize, source_register2: usize, offset: i16) -
 /// There are a few instructions that will cause no change except the PC to move forward, but the canonical encoding of a no-op is an ADDI with rd=0 rs1=0 and imm=0
 pub const fn no_op() -> Instruction {
     addi(0, 0, 0)
+}
+
+/// Construct a fence instruction. This is a no-op in our emulator.
+pub const fn fence() -> Instruction {
+    Instruction::Fence { pred: 0, succ: 0 }
+}
+
+/// Construct a fence.i operation. This is a no-op in our emulator.
+pub const fn fence_i() -> Instruction {
+    Instruction::FenceI {}
 }
 
 #[cfg(test)]
