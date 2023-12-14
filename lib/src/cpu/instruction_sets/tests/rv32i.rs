@@ -758,17 +758,44 @@ fn execute_lhu() {
 
 #[test]
 fn execute_sb() {
-    unimplemented!();
+    let mut test = init();
+    test.memory.set8(500, 50);
+    test.set_register(1, 500);
+    test.set_register(2, 0xDEADBEFFu32 as i32);
+    test.dbg_step(&encoder::sb(1, 2, 0));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.memory.get8(500), Ok(0xFF));
+    assert_eq!(test.memory.get8(501), Ok(0x0));
+    test.dbg_step(&encoder::sb(1, 2, 1));
+    assert_eq!(test.memory.get8(501), Ok(0xFF));
 }
 
 #[test]
 fn execute_sh() {
-    unimplemented!();
+    let mut test = init();
+    test.memory.set8(500, 50);
+    test.set_register(1, 500);
+    test.set_register(2, 0xDEADBEFFu32 as i32);
+    test.dbg_step(&encoder::sh(1, 2, 0));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.memory.get16(500), Ok(0xBEFF));
+    assert_eq!(test.memory.get16(502), Ok(0x0));
+    test.dbg_step(&encoder::sh(1, 2, 2));
+    assert_eq!(test.memory.get16(502), Ok(0xBEFF));
 }
 
 #[test]
 fn execute_sw() {
-    unimplemented!();
+    let mut test = init();
+    test.memory.set8(500, 50);
+    test.set_register(1, 500);
+    test.set_register(2, 0xDEADBEFFu32 as i32);
+    test.dbg_step(&encoder::sw(1, 2, 0));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.memory.get32(500), Ok(0xDEADBEFF));
+    assert_eq!(test.memory.get32(504), Ok(0x0));
+    test.dbg_step(&encoder::sw(1, 2, 4));
+    assert_eq!(test.memory.get32(504), Ok(0xDEADBEFF));
 }
 
 #[test]
