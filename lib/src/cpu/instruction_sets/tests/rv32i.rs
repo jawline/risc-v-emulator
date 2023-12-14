@@ -700,12 +700,60 @@ fn execute_lw() {
 
 #[test]
 fn execute_lbu() {
-    unimplemented!();
+    let mut test = init();
+    test.memory.set8(499, 10);
+    test.memory.set8(500, 50);
+    test.memory.set8(501, 25);
+    test.memory.set8(502, 0xFF);
+    test.set_register(1, 500);
+    test.set_register(2, 0);
+    test.dbg_step(&encoder::lbu(1, 2, 0));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.get_register(2), 50);
+
+    test.dbg_step(&encoder::lbu(1, 2, 1));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.get_register(2), 25);
+
+    test.dbg_step(&encoder::lbu(1, 2, -1));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.get_register(2), 10);
+
+    // Test sign extension
+    test.dbg_step(&encoder::lbu(1, 2, 2));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.get_register(2), 0xFF);
 }
 
 #[test]
 fn execute_lhu() {
-    unimplemented!();
+    let mut test = init();
+
+    test.memory.set8(501, 0b0101_1100);
+    test.memory.set8(500, 0b1010_1010);
+    test.set_register(1, 500);
+    test.set_register(2, 0);
+    test.dbg_step(&encoder::lhu(1, 2, 0));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.get_register(2), 0b0101_1100_1010_1010);
+
+    // Test immediate offset
+    test.memory.set8(503, 0b0111_1100);
+    test.memory.set8(502, 0b1010_1110);
+    test.set_register(1, 500);
+    test.set_register(2, 0);
+    test.dbg_step(&encoder::lhu(1, 2, 2));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.get_register(2), 0b0111_1100_1010_1110);
+
+    // Test that the LH is sign extended by default
+    test.memory.set8(501, 0b1101_1100);
+    test.memory.set8(500, 0b1010_1010);
+    test.set_register(1, 500);
+    test.set_register(2, 0);
+    test.dbg_step(&encoder::lhu(1, 2, 0));
+    assert_eq!(test.get_register(1), 500);
+    assert_eq!(test.get_register(2), 0b1101_1100_1010_1010u32 as i32);
 }
 
 #[test]

@@ -1,8 +1,8 @@
 use super::funct3::branch::{BEQ, BGE, BGEU, BLT, BLTU, BNE};
+use super::funct3::load::{LB, LBU, LH, LHU, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::funct3::store::{SB, SH, SW};
-use super::funct3::load::{LB, LH, LW, LBU, LHU};
 use super::opcodes::{AUIPC, BRANCH, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
@@ -794,7 +794,6 @@ pub const fn lh(source_register: usize, destination_register: usize, offset: i16
     }
 }
 
-
 /// Construct a load-byte-unsigned operation that will load a byte from [source_register + offset]
 /// and place it in the destination register. The byte will not be sign extended.
 pub const fn lbu(source_register: usize, destination_register: usize, offset: i16) -> Instruction {
@@ -1153,7 +1152,6 @@ mod test {
         construct_test_load(&lh(1, 2, 500), LH as u8, 1, 2, 500);
         construct_test_load(&lh(1, 2, -500), LH as u8, 1, 2, -500);
     }
-
 
     #[test]
     fn test_lbu() {
