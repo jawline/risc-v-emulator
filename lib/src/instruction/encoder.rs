@@ -195,8 +195,7 @@ const fn encode_branch(
         | (encode_b_type_immediate(branch_offset))
 }
 
-const fn encode_memory_op(
-    opcode: usize,
+const fn encode_load(
     funct3: u8,
     destination_register: usize,
     source_register: usize,
@@ -214,17 +213,43 @@ const fn encode_memory_op(
         panic!("funct3 out of range");
     }
 
-    if opcode > 0b1111111 {
-        panic!("opcode out of range");
-    }
-
     let offset = convert_i16_to_i12(offset);
 
-    (opcode as u32)
+    (LOAD as u32)
         | ((destination_register as u32) << 7)
         | ((funct3 as u32) << 12)
         | ((source_register as u32) << 15)
         | ((offset as u32) << 20)
+}
+
+const fn encode_store(
+    funct3: u8,
+    source_register1: usize,
+    source_register2: usize,
+    offset: i16,
+) -> u32 {
+    if source_register1 > 0b11111 {
+        panic!("source register outside of valid range");
+    }
+
+    if source_register2 > 0b11111 {
+        panic!("source register 2 outside of valid range");
+    }
+
+    if funct3 > 0b111 {
+        panic!("funct3 out of range");
+    }
+
+    let offset = convert_i16_to_i12(offset);
+    let lower_5_bits = offset & 0b11111;
+    let upper_7_bits = offset >> 5;
+
+    (STORE as u32)
+        | ((funct3 as u32) << 12)
+        | ((source_register1 as u32) << 15)
+        | ((source_register2 as u32) << 20)
+        | ((lower_5_bits as u32) << 7)
+        | ((upper_7_bits as u32) << 25)
 }
 
 pub enum Instruction {
@@ -341,14 +366,14 @@ impl Instruction {
                 source_register1,
                 source_register2,
                 offset,
-            } => encode_memory_op(STORE, funct3, source_register1, source_register2, offset),
+            } => encode_store(funct3, source_register1, source_register2, offset),
 
             &Instruction::Load {
                 funct3,
                 source_register,
                 destination_register,
                 offset,
-            } => encode_memory_op(LOAD, funct3, destination_register, source_register, offset),
+            } => encode_load(funct3, destination_register, source_register, offset),
         }
     }
 }
@@ -1114,20 +1139,20 @@ mod test {
 
     #[test]
     fn test_sb() {
-        construct_test_load(&sb(1, 2, 500), SB as u8, 1, 2, 500);
-        construct_test_load(&sb(1, 2, -500), SB as u8, 1, 2, -500);
+        construct_test_store(&sb(1, 2, 500), SB as u8, 1, 2, 500);
+        construct_test_store(&sb(1, 2, -500), SB as u8, 1, 2, -500);
     }
 
     #[test]
     fn test_sh() {
-        construct_test_load(&sh(1, 2, 500), SH as u8, 1, 2, 500);
-        construct_test_load(&sh(1, 2, -500), SH as u8, 1, 2, -500);
+        construct_test_store(&sh(1, 2, 500), SH as u8, 1, 2, 500);
+        construct_test_store(&sh(1, 2, -500), SH as u8, 1, 2, -500);
     }
 
     #[test]
     fn test_sw() {
-        construct_test_load(&sw(1, 2, 500), SW as u8, 1, 2, 500);
-        construct_test_load(&sw(1, 2, -500), SW as u8, 1, 2, -500);
+        construct_test_store(&sw(1, 2, 500), SW as u8, 1, 2, 500);
+        construct_test_store(&sw(1, 2, -500), SW as u8, 1, 2, -500);
     }
 
     // TODO: The OpImm instructions would be better with some negative tests
