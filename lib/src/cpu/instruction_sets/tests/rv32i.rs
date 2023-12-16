@@ -121,7 +121,7 @@ fn execute_slti() {
     let mut test = init();
 
     // Test positive
-    test.set_register(1, 4);
+    test.set_register(1, 5);
     test.dbg_step(&encoder::slti(2, 1, 4));
     test.expect_register(1, 5);
     test.expect_register(2, 0);
@@ -229,7 +229,7 @@ fn execute_slli() {
     test.expect_register(2, 0b11000);
     test.dbg_step(&encoder::slli(2, 1, 3));
     test.expect_register(2, 0b110000);
-    test.dbg_step(&encoder::slli(2, 1, 32));
+    test.dbg_step(&encoder::slli(2, 1, 31));
     test.expect_register(2, 0b0);
     test.set_register(1, -1);
     test.dbg_step(&encoder::slli(2, 1, 16));
@@ -360,7 +360,10 @@ fn execute_sltu() {
     test.expect_register(3, 0);
 
     test.set_register(1, 1);
+    test.set_register(2, 0);
     test.dbg_step(&encoder::sltu(3, 1, 2));
+    test.expect_register(3, 0);
+    test.dbg_step(&encoder::sltu(3, 2, 1));
     test.expect_register(3, 1);
 
     // Test max int
@@ -471,12 +474,12 @@ fn execute_jalr() {
     test.set_pc(5000);
     test.set_register(1, 9000);
     test.dbg_step_jmp(&encoder::jalr(1, 1, 500), 9500);
-    test.expect_register(1, 9004);
+    test.expect_register(1, 5004);
 
     test.set_pc(5000);
     test.set_register(1, 9000);
     test.dbg_step_jmp(&encoder::jalr(2, 1, -500), 8500);
-    test.expect_register(2, 9004);
+    test.expect_register(2, 5004);
 }
 
 #[test]
