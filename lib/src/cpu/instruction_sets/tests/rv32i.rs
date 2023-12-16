@@ -483,8 +483,14 @@ fn execute_jalr() {
 }
 
 #[test]
+#[should_panic]
 fn execute_jalr_result_is_misaligned() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 9001);
+    // This should trap (represented as a panic) on an unaligned instruction address
+    test.dbg_step(&encoder::jalr(1, 1, 500));
 }
 
 #[test]
