@@ -1,3 +1,4 @@
+use crate::cpu::csrs::Csrs;
 use std::default::Default;
 
 #[derive(Debug)]
@@ -29,16 +30,7 @@ impl<T: Default + Copy, const N: usize> General<T, N> {
 pub struct Registers<T: Default + Copy, const N: usize> {
     general: General<T, N>,
     pub pc: T,
-
-    /// The number of cycles that have occurred. We will set this to the number of instructions
-    /// executed for emulation.
-    pub rdcycle: u64,
-
-    /// The number of cycles retired by this core. This will equal rdcycle for emulation.
-    pub rdinstret: u64,
-
-    /// Wall clock. The step function should update this to system time.
-    pub rdtime: u64,
+    pub csrs: Csrs,
 }
 
 // Convenience functions that proxy through to general. pc can be used directly.
@@ -47,9 +39,7 @@ impl<T: Default + Copy, const N: usize> Registers<T, N> {
         Self {
             pc: T::default(),
             general: General::<T, N>::new(),
-            rdcycle: 0,
-            rdinstret: 0,
-            rdtime: 0,
+            csrs: Csrs::new(),
         }
     }
 

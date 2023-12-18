@@ -361,10 +361,10 @@ impl InstructionSet {
     }
 
     pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
-        cpu_state.registers.rdtime = SystemTime::now()
+        cpu_state.registers.csrs.rdtime = (SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_secs();
+            .as_millis()) as u64;
         let op_arg = &mut OpArgs {
             state: cpu_state,
             memory: memory,
@@ -385,7 +385,7 @@ impl InstructionSet {
             _ => trap_opcode(op_arg),
         }
 
-        cpu_state.registers.rdcycle += 1;
-        cpu_state.registers.rdinstret += 1;
+        cpu_state.registers.csrs.rdcycle += 1;
+        cpu_state.registers.csrs.instret += 1;
     }
 }

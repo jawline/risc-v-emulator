@@ -48,3 +48,13 @@ pub mod store {
     pub const SH: u8 = 0b001;
     pub const SW: u8 = 0b010;
 }
+
+pub mod system {
+    pub const ECALL_OR_EBREAK: u8 = 0b000;
+    pub const CSRRW: u8 = 0b001;
+    pub const CSRRS: u8 = 0b010;
+    pub const CSRRC: u8 = 0b011;
+    pub const CSRRWI: u8 = 0b101;
+    pub const CSRRSI: u8 = 0b110;
+    pub const CSRRCI: u8 = 0b111;
+}
