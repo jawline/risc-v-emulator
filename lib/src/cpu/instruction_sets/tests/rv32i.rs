@@ -848,3 +848,43 @@ fn execute_fence_i() {
     let mut test = init();
     test.dbg_step(&encoder::fence_i());
 }
+
+#[test]
+fn ecall() {
+    unimplemented!();
+}
+
+#[test]
+fn ebreak() {
+    unimplemented!();
+}
+
+#[test]
+fn csrrw() {
+    unimplemented!();
+}
+
+#[test]
+fn csrrs() {
+    unimplemented!();
+}
+
+#[test]
+fn csrrc() {
+    unimplemented!();
+}
+
+#[test]
+fn csrrwi() {
+    unimplemented!();
+}
+
+#[test]
+fn csrrsi() {
+    unimplemented!();
+}
+
+#[test]
+fn csrrci() {
+    unimplemented!();
+}
