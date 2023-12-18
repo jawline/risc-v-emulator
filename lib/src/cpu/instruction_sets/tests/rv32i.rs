@@ -1,15 +1,6 @@
-use super::*;
 use crate::cpu::instruction_sets::rv32i::{CpuState, InstructionSet};
 use crate::instruction::encoder::{self, Instruction};
 use crate::memory::Memory;
-
-const fn pack_negative_into_12b(val: i16) -> u16 {
-    if val < -2048 || val > 2047 {
-        panic!("12b signed value is out of range");
-    }
-
-    (val as u16) & 0b0000_1111_1111_1111
-}
 
 #[test]
 fn create_table() {
@@ -113,7 +104,15 @@ fn execute_addi() {
 
 #[test]
 fn execute_addi_overflow() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_register(1, i32::MAX);
+    test.dbg_step(&encoder::addi(1, 1, 1));
+    test.expect_register(1, i32::MIN);
+
+    test.set_register(1, i32::MIN);
+    test.dbg_step(&encoder::addi(1, 1, -1));
+    test.expect_register(1, i32::MAX);
 }
 
 #[test]
@@ -290,11 +289,21 @@ fn execute_add() {
 
 #[test]
 fn execute_add_overflow() {
-    unimplemented!();
+    let mut test = init();
+
+    test.set_register(1, i32::MIN);
+    test.set_register(2, -1);
+    test.dbg_step(&encoder::add(1, 1, 2));
+    test.expect_register(1, i32::MAX);
+
+    test.set_register(1, i32::MAX);
+    test.set_register(2, 1);
+    test.dbg_step(&encoder::add(1, 1, 2));
+    test.expect_register(1, i32::MIN);
 }
 
 #[test]
-fn execute_sub_overflow() {
+fn execute_sub() {
     let mut test = init();
 
     test.set_register(1, 5);
@@ -310,8 +319,18 @@ fn execute_sub_overflow() {
 }
 
 #[test]
-fn execute_sub_underflow() {
-    unimplemented!();
+fn execute_sub_overflow() {
+    let mut test = init();
+
+    test.set_register(1, i32::MAX);
+    test.set_register(2, -1);
+    test.dbg_step(&encoder::sub(1, 1, 2));
+    test.expect_register(1, i32::MIN);
+
+    test.set_register(1, i32::MIN);
+    test.set_register(2, 1);
+    test.dbg_step(&encoder::sub(1, 1, 2));
+    test.expect_register(1, i32::MAX);
 }
 
 #[test]
@@ -484,11 +503,22 @@ fn execute_jalr() {
 
 #[test]
 #[should_panic]
-fn execute_jalr_result_is_misaligned() {
+fn execute_jalr_result_is_misaligned_1_bit() {
     let mut test = init();
 
     test.set_pc(5000);
     test.set_register(1, 9001);
+    // This should trap (represented as a panic) on an unaligned instruction address
+    test.dbg_step(&encoder::jalr(1, 1, 500));
+}
+
+#[test]
+#[should_panic]
+fn execute_jalr_result_is_misaligned_2_bit() {
+    let mut test = init();
+
+    test.set_pc(5000);
+    test.set_register(1, 9002);
     // This should trap (represented as a panic) on an unaligned instruction address
     test.dbg_step(&encoder::jalr(1, 1, 500));
 }
@@ -630,10 +660,10 @@ fn execute_bgeu() {
 #[test]
 fn execute_lb() {
     let mut test = init();
-    test.memory.set8(499, 10);
-    test.memory.set8(500, 50);
-    test.memory.set8(501, 25);
-    test.memory.set8(502, 0xFF);
+    test.memory.set8(499, 10).unwrap();
+    test.memory.set8(500, 50).unwrap();
+    test.memory.set8(501, 25).unwrap();
+    test.memory.set8(502, 0xFF).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lb(1, 2, 0));
@@ -658,8 +688,8 @@ fn execute_lb() {
 fn execute_lh() {
     let mut test = init();
 
-    test.memory.set8(501, 0b0101_1100);
-    test.memory.set8(500, 0b1010_1010);
+    test.memory.set8(501, 0b0101_1100).unwrap();
+    test.memory.set8(500, 0b1010_1010).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lh(1, 2, 0));
@@ -667,8 +697,8 @@ fn execute_lh() {
     assert_eq!(test.get_register(2), 0b0101_1100_1010_1010);
 
     // Test immediate offset
-    test.memory.set8(503, 0b0111_1100);
-    test.memory.set8(502, 0b1010_1110);
+    test.memory.set8(503, 0b0111_1100).unwrap();
+    test.memory.set8(502, 0b1010_1110).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lh(1, 2, 2));
@@ -676,8 +706,8 @@ fn execute_lh() {
     assert_eq!(test.get_register(2), 0b0111_1100_1010_1110);
 
     // Test that the LH is sign extended by default
-    test.memory.set8(501, 0b1101_1100);
-    test.memory.set8(500, 0b1010_1010);
+    test.memory.set8(501, 0b1101_1100).unwrap();
+    test.memory.set8(500, 0b1010_1010).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lh(1, 2, 0));
@@ -692,10 +722,10 @@ fn execute_lh() {
 fn execute_lw() {
     let mut test = init();
 
-    test.memory.set8(503, 0b1111_1111);
-    test.memory.set8(502, 0b0000_0000);
-    test.memory.set8(501, 0b0101_1100);
-    test.memory.set8(500, 0b1010_1010);
+    test.memory.set8(503, 0b1111_1111).unwrap();
+    test.memory.set8(502, 0b0000_0000).unwrap();
+    test.memory.set8(501, 0b0101_1100).unwrap();
+    test.memory.set8(500, 0b1010_1010).unwrap();
 
     test.set_register(1, 500);
     test.set_register(2, 0);
@@ -710,10 +740,10 @@ fn execute_lw() {
 #[test]
 fn execute_lbu() {
     let mut test = init();
-    test.memory.set8(499, 10);
-    test.memory.set8(500, 50);
-    test.memory.set8(501, 25);
-    test.memory.set8(502, 0xFF);
+    test.memory.set8(499, 10).unwrap();
+    test.memory.set8(500, 50).unwrap();
+    test.memory.set8(501, 25).unwrap();
+    test.memory.set8(502, 0xFF).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lbu(1, 2, 0));
@@ -738,8 +768,8 @@ fn execute_lbu() {
 fn execute_lhu() {
     let mut test = init();
 
-    test.memory.set8(501, 0b0101_1100);
-    test.memory.set8(500, 0b1010_1010);
+    test.memory.set8(501, 0b0101_1100).unwrap();
+    test.memory.set8(500, 0b1010_1010).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lhu(1, 2, 0));
@@ -747,8 +777,8 @@ fn execute_lhu() {
     assert_eq!(test.get_register(2), 0b0101_1100_1010_1010);
 
     // Test immediate offset
-    test.memory.set8(503, 0b0111_1100);
-    test.memory.set8(502, 0b1010_1110);
+    test.memory.set8(503, 0b0111_1100).unwrap();
+    test.memory.set8(502, 0b1010_1110).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lhu(1, 2, 2));
@@ -756,8 +786,8 @@ fn execute_lhu() {
     assert_eq!(test.get_register(2), 0b0111_1100_1010_1110);
 
     // Test that the LH is sign extended by default
-    test.memory.set8(501, 0b1101_1100);
-    test.memory.set8(500, 0b1010_1010);
+    test.memory.set8(501, 0b1101_1100).unwrap();
+    test.memory.set8(500, 0b1010_1010).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0);
     test.dbg_step(&encoder::lhu(1, 2, 0));
@@ -768,7 +798,7 @@ fn execute_lhu() {
 #[test]
 fn execute_sb() {
     let mut test = init();
-    test.memory.set8(500, 50);
+    test.memory.set8(500, 50).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0xDEADBEFFu32 as i32);
     test.dbg_step(&encoder::sb(1, 2, 0));
@@ -782,7 +812,7 @@ fn execute_sb() {
 #[test]
 fn execute_sh() {
     let mut test = init();
-    test.memory.set8(500, 50);
+    test.memory.set8(500, 50).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0xDEADBEFFu32 as i32);
     test.dbg_step(&encoder::sh(1, 2, 0));
@@ -796,7 +826,7 @@ fn execute_sh() {
 #[test]
 fn execute_sw() {
     let mut test = init();
-    test.memory.set8(500, 50);
+    test.memory.set8(500, 50).unwrap();
     test.set_register(1, 500);
     test.set_register(2, 0xDEADBEFFu32 as i32);
     test.dbg_step(&encoder::sw(1, 2, 0));
