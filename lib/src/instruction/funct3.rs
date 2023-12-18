@@ -50,6 +50,8 @@ pub mod store {
 }
 
 pub mod system {
+
+    /// If the last 12 bits are 0 then this is ECALL otherwise it is EBREAK
     pub const ECALL_OR_EBREAK: u8 = 0b000;
     pub const CSRRW: u8 = 0b001;
     pub const CSRRS: u8 = 0b010;
