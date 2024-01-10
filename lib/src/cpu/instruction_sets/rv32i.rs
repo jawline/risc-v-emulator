@@ -1,6 +1,6 @@
 use crate::instruction::{
     decoder,
-    funct3::{branch, load, op, op_imm, store},
+    funct3::{branch, load, op, op_imm, store, system},
     opcodes,
     util::C_5_BITS,
 };
@@ -350,6 +350,36 @@ fn jalr(op: &mut OpArgs) {
 fn fence(op: &mut OpArgs) {
     // Fence is implement as a no-op as we only execute a single hart and do not pre-cache
     // instruction implementations.
+    op.state.registers.pc += INSTRUCTION_SIZE;
+}
+
+fn ecall_or_ebreak(op: &mut OpArgs) {
+    match op.i_imm() {
+        0 => {
+            /* ECALL */
+            unimplemented!();
+        }
+        1 => unsafe { std::intrinsics::breakpoint() },
+        _ =>
+        /* Illegal parameter */
+        {
+            trap_opcode(op)
+        }
+    }
+}
+
+fn system(op: &mut OpArgs) {
+    panic!("Unimplemented");
+
+    match op.funct3() {
+        system::ECALL_OR_EBREAK => ecall_or_ebreak(op),
+        _ =>
+        /* Illegal funct3 */
+        {
+            trap_opcode(op)
+        }
+    }
+
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
