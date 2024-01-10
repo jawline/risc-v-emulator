@@ -36,28 +36,18 @@ impl Csrs {
 
     pub fn get(&self, address: usize) -> Result<u32, IllegalCsrAddress> {
         match address {
-            0xC00 =>
-            //Read the lower 32 bits of rdcycle
-            {
-                Ok(lower(self.rdcycle))
-            }
+            0xC00 => Ok(lower(self.rdcycle)),
             0xC80 => Ok(upper(self.rdcycle)),
+            0xC01 => Ok(lower(self.rdtime)),
+            0xC81 => Ok(upper(self.rdtime)),
+            0xC02 => Ok(lower(self.instret)),
+            0xC82 => Ok(upper(self.instret)),
             _ => Err(IllegalCsrAddress),
         }
     }
 
     pub fn set(&mut self, address: usize, value: u32) -> Result<(), IllegalCsrAddress> {
         match address {
-            0xC00 => {
-                // Set the lower 32 bits
-                self.rdcycle = setlower(self.rdcycle, value);
-                Ok(())
-            }
-            0xC80 => {
-                // Set the upper 32 bits
-                self.rdcycle = setupper(self.rdcycle, value);
-                Ok(())
-            }
             _ => Err(IllegalCsrAddress),
         }
     }
@@ -68,6 +58,16 @@ mod test {
 
     #[test]
     fn test_cycle() {
+        unimplemented!();
+    }
+
+    #[test]
+    fn test_time() {
+        unimplemented!();
+    }
+
+    #[test]
+    fn test_instret() {
         unimplemented!();
     }
 }
