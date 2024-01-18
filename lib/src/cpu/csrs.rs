@@ -7,6 +7,7 @@ pub struct Csrs {
     pub rdtime: u64,
 }
 
+#[derive(Debug)]
 struct IllegalCsrAddress;
 
 fn lower(x: u64) -> u32 {
@@ -55,19 +56,34 @@ impl Csrs {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+
+    fn setup() -> Csrs {
+        let mut csrs = Csrs::new();
+        csrs.rdcycle = (550 << 32) | 500;
+        csrs.rdtime = (55000 << 32) | 50000;
+        csrs.instret = (255 << 32) | 250;
+        csrs
+    }
 
     #[test]
     fn test_cycle() {
-        unimplemented!();
+        let csrs = setup();
+        assert_eq!(csrs.get(0xC00).unwrap(), 500);
+        assert_eq!(csrs.get(0xC80).unwrap(), 550);
     }
 
     #[test]
     fn test_time() {
-        unimplemented!();
+        let csrs = setup();
+        assert_eq!(csrs.get(0xC01).unwrap(), 50000);
+        assert_eq!(csrs.get(0xC81).unwrap(), 55000);
     }
 
     #[test]
     fn test_instret() {
-        unimplemented!();
+        let csrs = setup();
+        assert_eq!(csrs.get(0xC02).unwrap(), 250);
+        assert_eq!(csrs.get(0xC82).unwrap(), 255);
     }
 }
