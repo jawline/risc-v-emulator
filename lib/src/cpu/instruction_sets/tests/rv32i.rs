@@ -851,12 +851,15 @@ fn execute_fence_i() {
 
 #[test]
 fn ecall() {
-    unimplemented!();
+    let mut test = init();
+    test.dbg_step(&encoder::ecall());
 }
 
 #[test]
 fn ebreak() {
-    unimplemented!();
+    // TODO: I tested this and observed a breakpoint trap. I'm not sure how to test it
+    // systematically. Maybe we could set a flag debug_breakpoint to true rather than actually
+    // breaking in the core.
 }
 
 #[test]

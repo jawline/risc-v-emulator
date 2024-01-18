@@ -913,6 +913,17 @@ pub const fn fence_i() -> Instruction {
     Instruction::FenceI {}
 }
 
+/// Construct a ecall operation. This is a chip specific environment call.
+pub const fn ecall() -> Instruction {
+    Instruction::ECall {}
+}
+
+/// Construct a ebreak operation. This is a chip specific debug breakpoint.
+pub const fn ebreak() -> Instruction {
+    Instruction::EBreak {}
+}
+
+
 #[cfg(test)]
 mod test {
     use super::super::decoder::*;
