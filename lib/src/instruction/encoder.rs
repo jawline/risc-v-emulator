@@ -3,7 +3,8 @@ use super::funct3::load::{LB, LBU, LH, LHU, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::funct3::store::{SB, SH, SW};
-use super::opcodes::{AUIPC, BRANCH, FENCE, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE};
+use super::funct3::system::{ECALL_OR_EBREAK};
+use super::opcodes::{AUIPC, BRANCH, FENCE, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE, SYSTEM};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
     let negative = value < 0;
@@ -60,6 +61,7 @@ const fn op_opcode(
     funct3: u8,
     funct7: u8,
 ) -> u32 {
+
     if destination_register > 32
         || source_register1 > 32
         || source_register2 > 32
@@ -268,6 +270,14 @@ const fn encode_fence(funct3: u8, pred: u8, succ: u8) -> u32 {
     (FENCE as u32) | ((funct3 as u32) << 7) | ((pred as u32) << 24) | ((succ as u32) << 20)
 }
 
+const fn encode_ecall() -> u32 {
+    (SYSTEM as u32) | ((ECALL_OR_EBREAK as u32) << 7) 
+}
+
+const fn encode_ebreak() -> u32 {
+    (SYSTEM as u32) | ((ECALL_OR_EBREAK as u32) << 7) | (1 << 20)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -322,6 +332,8 @@ pub enum Instruction {
         succ: u8,
     },
     FenceI {},
+    ECall,
+    EBreak,
 }
 
 impl Instruction {
@@ -396,6 +408,8 @@ impl Instruction {
             } => encode_load(funct3, destination_register, source_register, offset),
             &Instruction::Fence { pred, succ } => encode_fence(0, pred, succ),
             &Instruction::FenceI {} => encode_fence(1, 0, 0),
+            &Instruction::ECall {} => encode_ecall(),
+            &Instruction::EBreak {} => encode_ebreak(),
         }
     }
 }
@@ -1220,6 +1234,23 @@ mod test {
         construct_test_store(&sw(1, 2, 500), SW as u8, 1, 2, 500);
         construct_test_store(&sw(1, 2, -500), SW as u8, 1, 2, -500);
     }
+
+    #[test]
+    fn test_ecall() {
+        let op = Instruction::ECall.encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), ECALL_OR_EBREAK);
+        assert_eq!(i_type_immediate_32(op), 0);
+    }
+ 
+    #[test]
+    fn test_ebreak() {
+        let op = Instruction::EBreak.encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), ECALL_OR_EBREAK);
+        assert_eq!(i_type_immediate_32(op), 1);
+    }   
+
 
     // TODO: The OpImm instructions would be better with some negative tests
     // TODO: All signed and unsigned immediates should have tests for the extrema (MAX_INT and 0 or
