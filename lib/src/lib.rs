@@ -1,3 +1,4 @@
+#![allow(internal_features)]
 #![feature(const_mut_refs)]
 #![feature(generic_arg_infer)]
 #![feature(core_intrinsics)]

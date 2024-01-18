@@ -354,12 +354,14 @@ fn fence(op: &mut OpArgs) {
 }
 
 fn ecall_or_ebreak(op: &mut OpArgs) {
+    const ECALL: i32 = 0;
+    const EBREAK: i32 = 1;
     match op.i_imm() {
-        0 => {
+        ECALL => {
             /* ECALL */
             unimplemented!();
         }
-        1 => unsafe { std::intrinsics::breakpoint() },
+        EBREAK => unsafe { std::intrinsics::breakpoint() },
         _ =>
         /* Illegal parameter */
         {
@@ -369,14 +371,13 @@ fn ecall_or_ebreak(op: &mut OpArgs) {
 }
 
 fn system(op: &mut OpArgs) {
-    panic!("Unimplemented");
-
     match op.funct3() {
         system::ECALL_OR_EBREAK => ecall_or_ebreak(op),
         _ =>
         /* Illegal funct3 */
         {
-            trap_opcode(op)
+            /* TODO: CSR calls: trap_opcode(op) */
+            unimplemented!();
         }
     }
 
@@ -412,6 +413,7 @@ impl InstructionSet {
             opcodes::LOAD => load(op_arg),
             opcodes::STORE => store(op_arg),
             opcodes::FENCE => fence(op_arg),
+            opcodes::SYSTEM => system(op_arg),
             _ => trap_opcode(op_arg),
         }
 

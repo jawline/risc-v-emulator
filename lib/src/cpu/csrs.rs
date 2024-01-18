@@ -8,7 +8,7 @@ pub struct Csrs {
 }
 
 #[derive(Debug)]
-struct IllegalCsrAddress;
+pub struct IllegalCsrAddress;
 
 fn lower(x: u64) -> u32 {
     x as u32
@@ -18,11 +18,11 @@ fn upper(x: u64) -> u32 {
     (x >> 32) as u32
 }
 
-fn setlower(x: u64, value: u32) -> u64 {
+fn _setlower(x: u64, value: u32) -> u64 {
     (x & !u64::setbits(32)) | (value as u64)
 }
 
-fn setupper(x: u64, value: u32) -> u64 {
+fn _setupper(x: u64, value: u32) -> u64 {
     (x & u64::setbits(32)) | ((value as u64) << 32)
 }
 
@@ -47,7 +47,7 @@ impl Csrs {
         }
     }
 
-    pub fn set(&mut self, address: usize, value: u32) -> Result<(), IllegalCsrAddress> {
+    pub fn set(&mut self, address: usize, _value: u32) -> Result<(), IllegalCsrAddress> {
         match address {
             _ => Err(IllegalCsrAddress),
         }
