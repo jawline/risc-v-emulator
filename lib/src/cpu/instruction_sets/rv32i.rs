@@ -25,6 +25,13 @@ fn trap_memory_access(address: u32, op: &OpArgs) {
     panic!("Illegal memory access trap when accessing address {instruction:032b} {address:032b} {state:?}")
 }
 
+fn trap_illegal_csr_operation(csr_address: usize, op: &OpArgs, is_write: bool) -> ! {
+    let instruction = op.instruction;
+    let state = &op.state;
+    let read_or_write = if is_write { "write" } else { "read" };
+    panic!("Illegal memory access trap when accessing address {instruction:032b} {csr_address:032b} {state:?} {read_or_write}")
+}
+
 fn trap_unaligned_instruction(op: &OpArgs) {
     let state = &op.state;
     panic!("Illegal unaligned PC {state:?}")
@@ -370,10 +377,33 @@ fn ecall_or_ebreak(op: &mut OpArgs) {
     }
 }
 
+fn csr_rw(op: &mut OpArgs, csr_address: usize) {
+    let src = op.rs1();
+    let dest = op.rd();
+
+    // If rd=x0, then the instruction shall not read the CSR and shall not cause any of the
+    // side-effects that might occur on a CSR read.
+    let src_value = op.state.registers.get(src);
+
+    if dest != 0 {
+        // TODO: Instret might be wrong here (off by one)
+        let initial_csr_value = match op.state.registers.csrs.get(csr_address) {
+            Ok(value) => value,
+            Err(_) => trap_illegal_csr_operation(csr_address, op, false),
+        };
+        op.state.registers.set(dest, initial_csr_value);
+    }
+
+    match op.state.registers.csrs.set(csr_address, src_value) {
+        Ok(()) => (),
+        Err(_) => trap_illegal_csr_operation(csr_address, op, true),
+    }
+}
+
 fn system(op: &mut OpArgs) {
     match op.funct3() {
         system::ECALL_OR_EBREAK => ecall_or_ebreak(op),
-        system::CSRRW => unimplemented!(),
+        system::CSRRW => {}
         system::CSRRS => unimplemented!(),
         system::CSRRC => unimplemented!(),
         system::CSRRWI => unimplemented!(),

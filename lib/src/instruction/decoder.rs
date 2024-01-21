@@ -72,6 +72,11 @@ pub const fn i_type_immediate_32(instruction: u32) -> i32 {
     sign_extend_32(raw_value, 11, sign_bit)
 }
 
+/// CSR immediates are 12 bit immediates unsigned (just I-type immediates, non sign extended).
+pub const fn csr(instruction: u32) -> u32 {
+    extract(instruction, 20, 0b1111_1111_1111)
+}
+
 /// S-type immediates are sign extended 12 bit immediates packed into bits (7-11) for imm(0:4)
 /// and bits 25-31 for bits 5-11 (inclusive).
 pub const fn s_type_immediate_32(instruction: u32) -> i32 {
@@ -249,6 +254,27 @@ mod test {
         assert_eq!(i_type_immediate_32(MINUS_TWO_HUNDRED_AND_FIFTY), -250);
         assert_eq!(i_type_immediate_32(MINUS_ONE), -1);
         assert_eq!(i_type_immediate_32(MIN_NEGATIVE_VALUE), -2048);
+    }
+
+    #[test]
+    fn test_csr_type_immediate() {
+        const ZERO: u32 = 0b0000_0000_0000_1111_0001_0101_0101_0110;
+
+        const fn pack(v: u32) -> u32 {
+            // We OR this with zero to set some unrelated bits, testing
+            // that we're not accidentally just coming to the same value.
+            ZERO | (v << 20)
+        }
+
+        const ONE: u32 = pack(1);
+        const TWO_HUNDRED_AND_FIFTY: u32 = pack(250);
+        const MAX_POSITIVE_VALUE: u32 = pack(2048);
+
+        // Positive values
+        assert_eq!(csr(ZERO), 0);
+        assert_eq!(csr(ONE), 1);
+        assert_eq!(csr(TWO_HUNDRED_AND_FIFTY), 250);
+        assert_eq!(csr(MAX_POSITIVE_VALUE), 2048);
     }
 
     #[test]

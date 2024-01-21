@@ -5,6 +5,9 @@ pub struct Csrs {
     pub rdcycle: u64,
     pub instret: u64,
     pub rdtime: u64,
+
+    // We denote CSR 0x1 as 'test' in our implementation. Potentially we should flag this on / off.
+    pub test: u32,
 }
 
 #[derive(Debug)]
@@ -32,11 +35,13 @@ impl Csrs {
             rdcycle: 0,
             instret: 0,
             rdtime: 0,
+            test: 0,
         }
     }
 
     pub fn get(&self, address: usize) -> Result<u32, IllegalCsrAddress> {
         match address {
+            0x1 => Ok(self.test),
             0xC00 => Ok(lower(self.rdcycle)),
             0xC80 => Ok(upper(self.rdcycle)),
             0xC01 => Ok(lower(self.rdtime)),
@@ -47,8 +52,12 @@ impl Csrs {
         }
     }
 
-    pub fn set(&mut self, address: usize, _value: u32) -> Result<(), IllegalCsrAddress> {
+    pub fn set(&mut self, address: usize, value: u32) -> Result<(), IllegalCsrAddress> {
         match address {
+            0x1 => {
+                self.test = value;
+                Ok(())
+            }
             _ => Err(IllegalCsrAddress),
         }
     }
