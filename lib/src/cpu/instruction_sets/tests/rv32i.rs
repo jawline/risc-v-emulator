@@ -22,12 +22,18 @@ impl TestEnvironment {
         }
     }
 
-
-    fn step_with_ecall<F: FnOnce(&mut OpArgs) -> ()>(&mut self, instruction: &Instruction, ecall: F) {
-        self.tbl
-            .step(&mut self.state, &mut self.memory, instruction.encode(), ecall);
+    fn step_with_ecall<F: FnOnce(&mut OpArgs) -> ()>(
+        &mut self,
+        instruction: &Instruction,
+        ecall: F,
+    ) {
+        self.tbl.step(
+            &mut self.state,
+            &mut self.memory,
+            instruction.encode(),
+            ecall,
+        );
     }
-
 
     fn step(&mut self, instruction: &Instruction) {
         self.step_with_ecall(instruction, |_op| {});
@@ -859,7 +865,9 @@ fn execute_fence_i() {
 fn ecall() {
     let mut test = init();
     let mut executed = false;
-    test.step_with_ecall(&encoder::ecall(), |_| { executed = true; });
+    test.step_with_ecall(&encoder::ecall(), |_| {
+        executed = true;
+    });
     assert_eq!(executed, true);
     assert_eq!(4, test.state.registers.pc);
 }

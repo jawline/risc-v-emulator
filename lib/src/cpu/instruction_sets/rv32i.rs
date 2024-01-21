@@ -532,8 +532,13 @@ impl InstructionSet {
         Self {}
     }
 
-    pub fn step<F: FnOnce(&mut OpArgs) -> ()>(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32, ecall: F) {
-
+    pub fn step<F: FnOnce(&mut OpArgs) -> ()>(
+        &self,
+        cpu_state: &mut CpuState,
+        memory: &mut Memory,
+        instruction: u32,
+        ecall: F,
+    ) {
         cpu_state.registers.csrs.rdtime = (SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
