@@ -1,6 +1,6 @@
 # Risc-V Emulator
 
-This project implements the base RV32I ISA in Rust in an attempt to be as simple as possible. We do not include anything beyond the base user-mode ISA but it is sufficient to run programs compiled by GCC with some custom ecalls to observe IO.
+This project implements the base RV32I ISA. We do not include anything beyond the base user-mode ISA but it is sufficient to run programs compiled by GCC with some custom ecalls to observe IO.
 
 ## Hello World
 
