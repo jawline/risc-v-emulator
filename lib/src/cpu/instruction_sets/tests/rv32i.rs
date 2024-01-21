@@ -1,4 +1,4 @@
-use crate::cpu::instruction_sets::rv32i::{CpuState, InstructionSet};
+use crate::cpu::instruction_sets::rv32i::{CpuState, InstructionSet, OpArgs};
 use crate::instruction::encoder::{self, Instruction};
 use crate::memory::Memory;
 
@@ -22,9 +22,15 @@ impl TestEnvironment {
         }
     }
 
-    fn step(&mut self, instruction: &Instruction) {
+
+    fn step_with_ecall<F: FnOnce(&mut OpArgs) -> ()>(&mut self, instruction: &Instruction, ecall: F) {
         self.tbl
-            .step(&mut self.state, &mut self.memory, instruction.encode());
+            .step(&mut self.state, &mut self.memory, instruction.encode(), ecall);
+    }
+
+
+    fn step(&mut self, instruction: &Instruction) {
+        self.step_with_ecall(instruction, |_op| {});
     }
 
     /// Step function that asserts an expected new PC
@@ -852,7 +858,10 @@ fn execute_fence_i() {
 #[test]
 fn ecall() {
     let mut test = init();
-    test.dbg_step(&encoder::ecall());
+    let mut executed = false;
+    test.step_with_ecall(&encoder::ecall(), |_| { executed = true; });
+    assert_eq!(executed, true);
+    assert_eq!(4, test.state.registers.pc);
 }
 
 #[test]

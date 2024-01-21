@@ -360,13 +360,13 @@ fn fence(op: &mut OpArgs) {
     op.state.registers.pc += INSTRUCTION_SIZE;
 }
 
-fn ecall_or_ebreak(op: &mut OpArgs) {
+fn ecall_or_ebreak<F: FnOnce(&mut OpArgs) -> ()>(op: &mut OpArgs, ecall: F) {
     const ECALL: i32 = 0;
     const EBREAK: i32 = 1;
     match op.i_imm() {
         ECALL => {
             /* ECALL */
-            unimplemented!();
+            ecall(op)
         }
         EBREAK => unsafe { std::intrinsics::breakpoint() },
         _ =>
@@ -506,9 +506,9 @@ fn csr_rsi(op: &mut OpArgs) {
     });
 }
 
-fn system(op: &mut OpArgs) {
+fn system<F: FnOnce(&mut OpArgs) -> ()>(op: &mut OpArgs, ecall: F) {
     match op.funct3() {
-        system::ECALL_OR_EBREAK => ecall_or_ebreak(op),
+        system::ECALL_OR_EBREAK => ecall_or_ebreak(op, ecall),
         system::CSRRW => csr_rw(op),
         system::CSRRS => csr_rs(op),
         system::CSRRC => csr_rc(op),
@@ -532,11 +532,13 @@ impl InstructionSet {
         Self {}
     }
 
-    pub fn step(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32) {
+    pub fn step<F: FnOnce(&mut OpArgs) -> ()>(&self, cpu_state: &mut CpuState, memory: &mut Memory, instruction: u32, ecall: F) {
+
         cpu_state.registers.csrs.rdtime = (SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_millis()) as u64;
+
         let op_arg = &mut OpArgs {
             state: cpu_state,
             memory: memory,
@@ -554,7 +556,7 @@ impl InstructionSet {
             opcodes::LOAD => load(op_arg),
             opcodes::STORE => store(op_arg),
             opcodes::FENCE => fence(op_arg),
-            opcodes::SYSTEM => system(op_arg),
+            opcodes::SYSTEM => system(op_arg, ecall),
             _ => trap_opcode(op_arg),
         }
 
