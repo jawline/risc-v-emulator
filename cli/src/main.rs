@@ -37,6 +37,10 @@ fn main() {
 
     let mut cpu = Cpu::new();
 
+    // It seems like it is etiquette to
+    // boot at address 0x200
+    //cpu.state.registers.pc = 0x200;
+
     loop {
         cpu.step(&mut mem);
     }

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+riscv32-none-elf-as -o entry.o entry.s -march=rv32id
+riscv32-none-elf-gcc -nostdlib -nostartfiles -c hello_world.c -march=rv32id
+riscv32-none-elf-ld -o hello_world.elf entry.o hello_world.o -Tlink.ld 
+riscv32-none-elf-objcopy hello_world.elf -O binary hello_world
