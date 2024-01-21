@@ -4,8 +4,7 @@ This project implements the base RV32I ISA in Rust in an attempt to be as simple
 
 ## Hello World
 
-The repository includes a hello world program in C that can be compiled with the gcc toolchain. A precompiled version is available under cli/test_programs/hello_world. A small assembly shim is used to initialize a small stack for it to execute in and ecall is used to putc whatever is in x10 to the cli. To executed it we run: ```
-~/risc-v-emulator/cli master $ RUST_BACKTRACE=1 cargo run -- --program ./test_programs/hello_world
+The repository includes a hello world program in C that can be compiled with the gcc toolchain. A precompiled version is available under cli/test_programs/hello_world. A small assembly shim is used to initialize a small stack for it to execute in and ecall is used to putc whatever is in x10 to the cli. To executed it we run: ```~/risc-v-emulator/cli master $ RUST_BACKTRACE=1 cargo run -- --program ./test_programs/hello_world
     Finished dev [unoptimized + debuginfo] target(s) in 0.01s
      Running `target/debug/risc-v-emulator --program ./test_programs/hello_world`
 Loading program
