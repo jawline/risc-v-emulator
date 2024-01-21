@@ -864,7 +864,22 @@ fn ebreak() {
 
 #[test]
 fn csrrw() {
-    unimplemented!();
+    let mut test = init();
+    test.state.registers.csrs.test = 400;
+    test.set_register(2, 500);
+    test.dbg_step(&encoder::csrrw(2, 2, 0x1));
+    assert_eq!(test.get_register(2), 400);
+    assert_eq!(test.state.registers.csrs.test, 500);
+    test.dbg_step(&encoder::csrrw(2, 2, 0x1));
+    assert_eq!(test.get_register(2), 500);
+    assert_eq!(test.state.registers.csrs.test, 400);
+}
+
+#[test]
+#[should_panic]
+fn csrrw_illegal() {
+    let mut test = init();
+    test.dbg_step(&encoder::csrrw(2, 2, 0x2));
 }
 
 #[test]
