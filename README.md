@@ -14,3 +14,12 @@ Writing program into memory from index 0
 Executing
 Hello World
 ```
+
+## Tests
+
+The instruction decoder is tested in `lib/src/instruction/decoder.rs`.
+
+There are tests for each opcode under
+`lib/src/cpu/instruction_sets/tests/rv32i.rs`'
+
+The core fetch-decode-execute loop is tested under `lib/src/cpu/base.rs`. 
