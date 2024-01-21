@@ -3,7 +3,7 @@ use super::funct3::load::{LB, LBU, LH, LHU, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::funct3::store::{SB, SH, SW};
-use super::funct3::system::{CSRRC, CSRRS, CSRRW, ECALL_OR_EBREAK};
+use super::funct3::system::{CSRRC, CSRRCI, CSRRS, CSRRSI, CSRRW, CSRRWI, ECALL_OR_EBREAK};
 use super::opcodes::{AUIPC, BRANCH, FENCE, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE, SYSTEM};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
@@ -377,6 +377,22 @@ pub enum Instruction {
         destination_register: usize,
         csr: usize,
     },
+
+    CsrRwi {
+        source_value: usize,
+        destination_register: usize,
+        csr: usize,
+    },
+    CsrRsi {
+        source_value: usize,
+        destination_register: usize,
+        csr: usize,
+    },
+    CsrRci {
+        source_value: usize,
+        destination_register: usize,
+        csr: usize,
+    },
 }
 
 impl Instruction {
@@ -468,6 +484,21 @@ impl Instruction {
                 source_register,
                 destination_register,
             } => encode_csr(CSRRC, csr, destination_register, source_register),
+            &Instruction::CsrRwi {
+                csr,
+                source_value,
+                destination_register,
+            } => encode_csr(CSRRWI, csr, destination_register, source_value),
+            &Instruction::CsrRsi {
+                csr,
+                source_value,
+                destination_register,
+            } => encode_csr(CSRRSI, csr, destination_register, source_value),
+            &Instruction::CsrRci {
+                csr,
+                source_value,
+                destination_register,
+            } => encode_csr(CSRRCI, csr, destination_register, source_value),
         }
     }
 }
@@ -1008,6 +1039,33 @@ pub const fn csrrc(source_register: usize, destination_register: usize, csr: usi
     }
 }
 
+/// Construct an atomic read/write immediate CSR instruction
+pub const fn csrrwi(source_value: usize, destination_register: usize, csr: usize) -> Instruction {
+    Instruction::CsrRwi {
+        csr,
+        destination_register,
+        source_value,
+    }
+}
+
+/// Construct an atomic CSR read and set bits immediate
+pub const fn csrrsi(source_value: usize, destination_register: usize, csr: usize) -> Instruction {
+    Instruction::CsrRsi {
+        csr,
+        destination_register,
+        source_value,
+    }
+}
+
+/// Construct an atomic CSR read and clear bits immediate
+pub const fn csrrci(source_value: usize, destination_register: usize, csr: usize) -> Instruction {
+    Instruction::CsrRci {
+        csr,
+        destination_register,
+        source_value,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::super::decoder::*;
@@ -1371,6 +1429,36 @@ mod test {
         let op = csrrc(5, 31, 2048).encode();
         assert_eq!(opcode(op), SYSTEM);
         assert_eq!(funct3(op), CSRRC);
+        assert_eq!(rs1(op), 5);
+        assert_eq!(rd(op), 31);
+        assert_eq!(csr(op), 2048);
+    }
+
+    #[test]
+    fn test_csrrwi() {
+        let op = csrrwi(5, 31, 2048).encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), CSRRWI);
+        assert_eq!(rs1(op), 5);
+        assert_eq!(rd(op), 31);
+        assert_eq!(csr(op), 2048);
+    }
+
+    #[test]
+    fn test_csrrsi() {
+        let op = csrrsi(5, 31, 2048).encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), CSRRSI);
+        assert_eq!(rs1(op), 5);
+        assert_eq!(rd(op), 31);
+        assert_eq!(csr(op), 2048);
+    }
+
+    #[test]
+    fn test_csrrci() {
+        let op = csrrci(5, 31, 2048).encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), CSRRCI);
         assert_eq!(rs1(op), 5);
         assert_eq!(rd(op), 31);
         assert_eq!(csr(op), 2048);
