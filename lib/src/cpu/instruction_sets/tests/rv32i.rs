@@ -936,15 +936,66 @@ fn csrrc_illegal_write() {
 
 #[test]
 fn csrrwi() {
-    unimplemented!();
+    let mut test = init();
+    test.state.registers.csrs.test = 400;
+    test.set_register(2, 500);
+    test.dbg_step(&encoder::csrrwi(2, 2, 0x1));
+    assert_eq!(test.get_register(2), 400);
+    assert_eq!(test.state.registers.csrs.test, 2);
+}
+
+#[test]
+#[should_panic]
+fn csrrwi_illegal() {
+    let mut test = init();
+    test.dbg_step(&encoder::csrrwi(2, 2, 0x2));
 }
 
 #[test]
 fn csrrsi() {
-    unimplemented!();
+    let mut test = init();
+    test.state.registers.csrs.test = 400;
+    test.dbg_step(&encoder::csrrsi(0, 1, 0x1));
+    assert_eq!(test.get_register(1), 400);
+
+    test.dbg_step(&encoder::csrrsi(1, 1, 0x1));
+    assert_eq!(test.get_register(1), 400);
+    assert_eq!(test.state.registers.csrs.test, 401);
+
+    // Test that read with source of zero from instret succeeds
+    test.state.registers.csrs.instret = 0;
+    test.dbg_step(&encoder::csrrsi(0, 1, 0xC02));
+    assert_eq!(test.get_register(1), 0);
+}
+
+#[test]
+#[should_panic]
+fn csrrsi_illegal_write() {
+    let mut test = init();
+    test.dbg_step(&encoder::csrrsi(1, 2, 0xC01));
 }
 
 #[test]
 fn csrrci() {
-    unimplemented!();
+    let mut test = init();
+    test.state.registers.csrs.test = 405;
+    test.dbg_step(&encoder::csrrci(0, 1, 0x1));
+    assert_eq!(test.get_register(1), 405);
+
+    test.set_register(1, 0);
+    test.dbg_step(&encoder::csrrci(5, 1, 0x1));
+    assert_eq!(test.get_register(1), 405);
+    assert_eq!(test.state.registers.csrs.test, 400);
+
+    // Test that read with source of zero from instret succeeds
+    test.state.registers.csrs.instret = 0;
+    test.dbg_step(&encoder::csrrci(0, 1, 0xC02));
+    assert_eq!(test.get_register(1), 0);
+}
+
+#[test]
+#[should_panic]
+fn csrrci_illegal_write() {
+    let mut test = init();
+    test.dbg_step(&encoder::csrrci(1, 2, 0xC01));
 }
