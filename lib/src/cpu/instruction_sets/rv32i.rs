@@ -404,6 +404,68 @@ fn csr_template<F: Fn(&mut OpArgs, usize, usize, u32) -> ()>(op: &mut OpArgs, f:
     f(op, csr_address, src, src_value)
 }
 
+fn csr_rw(op: &mut OpArgs) {
+    csr_template(op, |op, csr_address, _src, src_value| {
+        match op.state.registers.csrs.set(csr_address, src_value) {
+            Ok(()) => (),
+            Err(_) => trap_illegal_csr_operation(csr_address, op, true),
+        }
+    });
+}
+
+fn csr_rc_rs_write<F: Fn(u32, u32) -> u32>(
+    op: &mut OpArgs,
+    csr_address: usize,
+    src_value: u32,
+    f: F,
+) {
+    let current_csr_value = match op.state.registers.csrs.get(csr_address) {
+        Ok(value) => value,
+        Err(_) => trap_illegal_csr_operation(csr_address, op, false),
+    };
+
+    let new_csr_value = f(current_csr_value, src_value);
+
+    match op.state.registers.csrs.set(csr_address, new_csr_value) {
+        Ok(()) => (),
+        Err(_) => trap_illegal_csr_operation(csr_address, op, true),
+    }
+}
+
+fn csr_rs_write(op: &mut OpArgs, csr_address: usize, src_value: u32) {
+    csr_rc_rs_write(
+        op,
+        csr_address,
+        src_value,
+        |current_csr_value, src_value| current_csr_value | src_value,
+    )
+}
+
+fn csr_rs(op: &mut OpArgs) {
+    csr_template(op, |op, csr_address, src, src_value| {
+        if src != 0 {
+            csr_rs_write(op, csr_address, src_value);
+        }
+    });
+}
+
+fn csr_rc_write(op: &mut OpArgs, csr_address: usize, src_value: u32) {
+    csr_rc_rs_write(
+        op,
+        csr_address,
+        src_value,
+        |current_csr_value, src_value| current_csr_value & (!src_value),
+    )
+}
+
+fn csr_rc(op: &mut OpArgs) {
+    csr_template(op, |op, csr_address, src, src_value| {
+        if src != 0 {
+            csr_rc_write(op, csr_address, src_value);
+        }
+    });
+}
+
 fn csri_template<F: Fn(&mut OpArgs, usize, u32) -> ()>(op: &mut OpArgs, f: F) {
     let csr_address = op.csr() as usize;
     let src = op.rs1() as u32;
@@ -419,8 +481,8 @@ fn csri_template<F: Fn(&mut OpArgs, usize, u32) -> ()>(op: &mut OpArgs, f: F) {
     f(op, csr_address, src)
 }
 
-fn csr_rw(op: &mut OpArgs) {
-    csr_template(op, |op, csr_address, _src, src_value| {
+fn csr_rwi(op: &mut OpArgs) {
+    csri_template(op, |op, csr_address, src_value| {
         match op.state.registers.csrs.set(csr_address, src_value) {
             Ok(()) => (),
             Err(_) => trap_illegal_csr_operation(csr_address, op, true),
@@ -428,40 +490,18 @@ fn csr_rw(op: &mut OpArgs) {
     });
 }
 
-fn csr_rs(op: &mut OpArgs) {
-    csr_template(op, |op, csr_address, src, src_value| {
-        if src != 0 {
-            let current_csr_value = match op.state.registers.csrs.get(csr_address) {
-                Ok(value) => value,
-                Err(_) => trap_illegal_csr_operation(csr_address, op, false),
-            };
-
-            let new_csr_value = current_csr_value | src_value;
-
-            match op.state.registers.csrs.set(csr_address, new_csr_value) {
-                Ok(()) => (),
-                Err(_) => trap_illegal_csr_operation(csr_address, op, true),
-            }
+fn csr_rci(op: &mut OpArgs) {
+    csri_template(op, |op, csr_address, src_value| {
+        if src_value != 0 {
+            csr_rc_write(op, csr_address, src_value);
         }
     });
 }
 
-fn csr_rc(op: &mut OpArgs) {
-    csr_template(op, |op, csr_address, src, src_value| {
-        if src != 0 {
-            let current_csr_value = match op.state.registers.csrs.get(csr_address) {
-                Ok(value) => value,
-                Err(_) => trap_illegal_csr_operation(csr_address, op, false),
-            };
-
-            // Any bit that is high in rs1 will cause the corresponding bit to be cleared in the
-            // CSR, if that CSR bit is writable. Other bits in the CSR are unaffected.
-            let new_csr_value = current_csr_value & (!src_value);
-
-            match op.state.registers.csrs.set(csr_address, new_csr_value) {
-                Ok(()) => (),
-                Err(_) => trap_illegal_csr_operation(csr_address, op, true),
-            }
+fn csr_rsi(op: &mut OpArgs) {
+    csri_template(op, |op, csr_address, src_value| {
+        if src_value != 0 {
+            csr_rs_write(op, csr_address, src_value);
         }
     });
 }
@@ -472,9 +512,9 @@ fn system(op: &mut OpArgs) {
         system::CSRRW => csr_rw(op),
         system::CSRRS => csr_rs(op),
         system::CSRRC => csr_rc(op),
-        system::CSRRWI => unimplemented!(),
-        system::CSRRSI => unimplemented!(),
-        system::CSRRCI => unimplemented!(),
+        system::CSRRWI => csr_rwi(op),
+        system::CSRRSI => csr_rsi(op),
+        system::CSRRCI => csr_rci(op),
         _ =>
         /* Illegal funct3 */
         {
