@@ -3,7 +3,7 @@ use super::funct3::load::{LB, LBU, LH, LHU, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::funct3::store::{SB, SH, SW};
-use super::funct3::system::{CSRRW, ECALL_OR_EBREAK};
+use super::funct3::system::{CSRRC, CSRRS, CSRRW, ECALL_OR_EBREAK};
 use super::opcodes::{AUIPC, BRANCH, FENCE, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE, SYSTEM};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
@@ -367,6 +367,16 @@ pub enum Instruction {
         destination_register: usize,
         csr: usize,
     },
+    CsrRs {
+        source_register: usize,
+        destination_register: usize,
+        csr: usize,
+    },
+    CsrRc {
+        source_register: usize,
+        destination_register: usize,
+        csr: usize,
+    },
 }
 
 impl Instruction {
@@ -448,6 +458,16 @@ impl Instruction {
                 source_register,
                 destination_register,
             } => encode_csr(CSRRW, csr, destination_register, source_register),
+            &Instruction::CsrRs {
+                csr,
+                source_register,
+                destination_register,
+            } => encode_csr(CSRRS, csr, destination_register, source_register),
+            &Instruction::CsrRc {
+                csr,
+                source_register,
+                destination_register,
+            } => encode_csr(CSRRC, csr, destination_register, source_register),
         }
     }
 }
@@ -970,6 +990,24 @@ pub const fn csrrw(source_register: usize, destination_register: usize, csr: usi
     }
 }
 
+/// Construct an atomic CSR read and set bits
+pub const fn csrrs(source_register: usize, destination_register: usize, csr: usize) -> Instruction {
+    Instruction::CsrRs {
+        csr,
+        destination_register,
+        source_register,
+    }
+}
+
+/// Construct an atomic CSR read and clear bits
+pub const fn csrrc(source_register: usize, destination_register: usize, csr: usize) -> Instruction {
+    Instruction::CsrRc {
+        csr,
+        destination_register,
+        source_register,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::super::decoder::*;
@@ -1313,6 +1351,26 @@ mod test {
         let op = csrrw(5, 31, 2048).encode();
         assert_eq!(opcode(op), SYSTEM);
         assert_eq!(funct3(op), CSRRW);
+        assert_eq!(rs1(op), 5);
+        assert_eq!(rd(op), 31);
+        assert_eq!(csr(op), 2048);
+    }
+
+    #[test]
+    fn test_csrrs() {
+        let op = csrrs(5, 31, 2048).encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), CSRRS);
+        assert_eq!(rs1(op), 5);
+        assert_eq!(rd(op), 31);
+        assert_eq!(csr(op), 2048);
+    }
+
+    #[test]
+    fn test_csrrc() {
+        let op = csrrc(5, 31, 2048).encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), CSRRC);
         assert_eq!(rs1(op), 5);
         assert_eq!(rd(op), 31);
         assert_eq!(csr(op), 2048);
