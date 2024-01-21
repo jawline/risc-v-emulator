@@ -386,7 +386,7 @@ fn write_csr_to_dest_register(op: &mut OpArgs, dest: usize, csr_address: usize) 
     op.state.registers.set(dest, initial_csr_value);
 }
 
-fn csr_rw(op: &mut OpArgs) {
+fn csr_template<F: Fn(&mut OpArgs, usize, usize, u32) -> ()>(op: &mut OpArgs, f: F) {
     let csr_address = op.csr() as usize;
     let src = op.rs1();
     let dest = op.rd();
@@ -400,47 +400,62 @@ fn csr_rw(op: &mut OpArgs) {
         write_csr_to_dest_register(op, dest, csr_address);
     }
 
-    match op.state.registers.csrs.set(csr_address, src_value) {
-        Ok(()) => (),
-        Err(_) => trap_illegal_csr_operation(csr_address, op, true),
-    }
+    f(op, csr_address, src, src_value)
 }
 
-fn csr_rs(op: &mut OpArgs) {
-    let csr_address = op.csr() as usize;
-    let src = op.rs1();
-    let dest = op.rd();
-
-    // We cache the src value before the CSR write in case it rs1 = rd
-    let src_value = op.state.registers.get(src);
-
-    // If rd=x0, then the instruction shall not read the CSR and shall not cause any of the
-    // side-effects that might occur on a CSR read.
-    if dest != 0 {
-        write_csr_to_dest_register(op, dest, csr_address);
-    }
-
-    if src != 0 {
-        let current_csr_value = match op.state.registers.csrs.get(csr_address) {
-            Ok(value) => value,
-            Err(_) => trap_illegal_csr_operation(csr_address, op, false),
-        };
-
-        let new_csr_value = current_csr_value | src_value;
-
-        match op.state.registers.csrs.set(csr_address, new_csr_value) {
+fn csr_rw(op: &mut OpArgs) {
+    csr_template(op, |op, csr_address, _src, src_value| {
+        match op.state.registers.csrs.set(csr_address, src_value) {
             Ok(()) => (),
             Err(_) => trap_illegal_csr_operation(csr_address, op, true),
         }
-    }
+    });
+}
+
+fn csr_rs(op: &mut OpArgs) {
+    csr_template(op, |op, csr_address, src, src_value| {
+        if src != 0 {
+            let current_csr_value = match op.state.registers.csrs.get(csr_address) {
+                Ok(value) => value,
+                Err(_) => trap_illegal_csr_operation(csr_address, op, false),
+            };
+
+            let new_csr_value = current_csr_value | src_value;
+
+            match op.state.registers.csrs.set(csr_address, new_csr_value) {
+                Ok(()) => (),
+                Err(_) => trap_illegal_csr_operation(csr_address, op, true),
+            }
+        }
+    });
+}
+
+fn csr_rc(op: &mut OpArgs) {
+    csr_template(op, |op, csr_address, src, src_value| {
+        if src != 0 {
+            let current_csr_value = match op.state.registers.csrs.get(csr_address) {
+                Ok(value) => value,
+                Err(_) => trap_illegal_csr_operation(csr_address, op, false),
+            };
+
+            // Any bit that is high in rs1 will cause the corresponding bit to be cleared in the
+            // CSR, if that CSR bit is writable. Other bits in the CSR are unaffected.
+            let new_csr_value = current_csr_value & (!src_value);
+
+            match op.state.registers.csrs.set(csr_address, new_csr_value) {
+                Ok(()) => (),
+                Err(_) => trap_illegal_csr_operation(csr_address, op, true),
+            }
+        }
+    });
 }
 
 fn system(op: &mut OpArgs) {
     match op.funct3() {
         system::ECALL_OR_EBREAK => ecall_or_ebreak(op),
         system::CSRRW => csr_rw(op),
-        system::CSRRS => unimplemented!(),
-        system::CSRRC => unimplemented!(),
+        system::CSRRS => csr_rs(op),
+        system::CSRRC => csr_rc(op),
         system::CSRRWI => unimplemented!(),
         system::CSRRSI => unimplemented!(),
         system::CSRRCI => unimplemented!(),
