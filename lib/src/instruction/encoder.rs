@@ -961,6 +961,15 @@ pub const fn ebreak() -> Instruction {
     Instruction::EBreak {}
 }
 
+/// Construct an atomic read/write CSR instruction
+pub const fn csrrw(source_register: usize, destination_register: usize, csr: usize) -> Instruction {
+    Instruction::CsrRw {
+        csr,
+        destination_register,
+        source_register,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::super::decoder::*;
@@ -1297,6 +1306,16 @@ mod test {
         assert_eq!(opcode(op), SYSTEM);
         assert_eq!(funct3(op), ECALL_OR_EBREAK);
         assert_eq!(i_type_immediate_32(op), 1);
+    }
+
+    #[test]
+    fn test_csrrw() {
+        let op = csrrw(5, 31, 2048).encode();
+        assert_eq!(opcode(op), SYSTEM);
+        assert_eq!(funct3(op), CSRRW);
+        assert_eq!(rs1(op), 5);
+        assert_eq!(rd(op), 31);
+        assert_eq!(csr(op), 2048);
     }
 
     // TODO: The OpImm instructions would be better with some negative tests
