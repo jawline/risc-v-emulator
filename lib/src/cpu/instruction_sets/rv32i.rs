@@ -404,6 +404,21 @@ fn csr_template<F: Fn(&mut OpArgs, usize, usize, u32) -> ()>(op: &mut OpArgs, f:
     f(op, csr_address, src, src_value)
 }
 
+fn csri_template<F: Fn(&mut OpArgs, usize, u32) -> ()>(op: &mut OpArgs, f: F) {
+    let csr_address = op.csr() as usize;
+    let src = op.rs1() as u32;
+    let dest = op.rd();
+
+    // If rd=x0, then the instruction shall not read the CSR and shall not cause any of the
+    // side-effects that might occur on a CSR read.
+    // TODO: I think CSRRS and CSRRC should still do the side effects if dest != 0
+    if dest != 0 {
+        write_csr_to_dest_register(op, dest, csr_address);
+    }
+
+    f(op, csr_address, src)
+}
+
 fn csr_rw(op: &mut OpArgs) {
     csr_template(op, |op, csr_address, _src, src_value| {
         match op.state.registers.csrs.set(csr_address, src_value) {
