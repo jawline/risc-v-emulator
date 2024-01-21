@@ -373,11 +373,16 @@ fn ecall_or_ebreak(op: &mut OpArgs) {
 fn system(op: &mut OpArgs) {
     match op.funct3() {
         system::ECALL_OR_EBREAK => ecall_or_ebreak(op),
+        system::CSRRW => unimplemented!(),
+        system::CSRRS => unimplemented!(),
+        system::CSRRC => unimplemented!(),
+        system::CSRRWI => unimplemented!(),
+        system::CSRRSI => unimplemented!(),
+        system::CSRRCI => unimplemented!(),
         _ =>
         /* Illegal funct3 */
         {
-            /* TODO: CSR calls: trap_opcode(op) */
-            unimplemented!();
+            trap_opcode(op)
         }
     }
 
