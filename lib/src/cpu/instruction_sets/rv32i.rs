@@ -16,13 +16,14 @@ pub type CpuState = crate::cpu::base::CpuState<u32, 32>;
 fn trap_opcode(op: &OpArgs) {
     let instruction = op.instruction;
     let state = &op.state;
-    panic!("Illegal opcode trap when handling instruction {instruction:032b} {state:?}")
+    let op = decoder::opcode(instruction);
+    panic!("Illegal opcode trap when handling instruction {instruction:02x} {op:08b} {state:?}")
 }
 
 fn trap_memory_access(address: u32, op: &OpArgs) {
     let instruction = op.instruction;
     let state = &op.state;
-    panic!("Illegal memory access trap when accessing address {instruction:032b} {address:032b} {state:?}")
+    panic!("Illegal memory access trap when accessing address {instruction:032b} {address:016x} {state:?}")
 }
 
 fn trap_illegal_csr_operation(csr_address: usize, op: &OpArgs, is_write: bool) -> ! {

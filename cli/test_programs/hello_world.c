@@ -1,7 +1,6 @@
 void lputs(char* s);
 
 void c_start() {
-  asm volatile("mv a2, a0");
   lputs("Hello World\n");
 }
 

@@ -33,7 +33,9 @@ impl Cpu {
             .get32(self.state.registers.pc as usize)
             .expect("PC out of range");
         self.tbl
-            .step(&mut self.state, memory, next_instruction, |_| {});
+            .step(&mut self.state, memory, next_instruction, |op| {
+                print!("{}", op.state.registers.get(10) as u8 as char);
+            });
     }
 }
 
