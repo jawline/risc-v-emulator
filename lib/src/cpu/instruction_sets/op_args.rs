@@ -15,6 +15,10 @@ impl<'a, 'b, T: Default + Copy, const N: usize> OpArgs<'a, 'b, T, N> {
         decoder::i_type_immediate_32(self.instruction)
     }
 
+    pub fn csr(&self) -> u32 {
+        decoder::csr(self.instruction)
+    }
+
     pub fn b_imm(&self) -> i32 {
         decoder::b_type_immediate_32(self.instruction)
     }

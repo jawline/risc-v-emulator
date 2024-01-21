@@ -3,7 +3,7 @@ use super::funct3::load::{LB, LBU, LH, LHU, LW};
 use super::funct3::op::{ADD_OR_SUB, AND, OR, SLL, SLT, SLTU, SRL_OR_SRA, XOR};
 use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XORI};
 use super::funct3::store::{SB, SH, SW};
-use super::funct3::system::ECALL_OR_EBREAK;
+use super::funct3::system::{CSRRW, ECALL_OR_EBREAK};
 use super::opcodes::{AUIPC, BRANCH, FENCE, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE, SYSTEM};
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
@@ -277,6 +277,35 @@ const fn encode_ebreak() -> u32 {
     (SYSTEM as u32) | ((ECALL_OR_EBREAK as u32) << 7) | (1 << 20)
 }
 
+const fn encode_csr(
+    funct3: u8,
+    csr: usize,
+    destination_register: usize,
+    source_register: usize,
+) -> u32 {
+    if destination_register > 0b11111 {
+        panic!("dest register outside of valid range");
+    }
+
+    if source_register > 0b11111 {
+        panic!("source register 1 outside of valid range");
+    }
+
+    if csr > 0b1111_1111_1111 {
+        panic!("csr value out of range");
+    }
+
+    if funct3 > 0b111 {
+        panic!("funct3 out of range");
+    }
+
+    (SYSTEM as u32)
+        | ((destination_register as u32) << 7)
+        | ((funct3 as u32) << 12)
+        | ((source_register as u32) << 15)
+        | ((csr as u32) << 20)
+}
+
 pub enum Instruction {
     OpImm {
         destination_register: usize,
@@ -333,6 +362,11 @@ pub enum Instruction {
     FenceI {},
     ECall,
     EBreak,
+    CsrRw {
+        source_register: usize,
+        destination_register: usize,
+        csr: usize,
+    },
 }
 
 impl Instruction {
@@ -409,6 +443,11 @@ impl Instruction {
             &Instruction::FenceI {} => encode_fence(1, 0, 0),
             &Instruction::ECall {} => encode_ecall(),
             &Instruction::EBreak {} => encode_ebreak(),
+            &Instruction::CsrRw {
+                csr,
+                source_register,
+                destination_register,
+            } => encode_csr(CSRRW, csr, destination_register, source_register),
         }
     }
 }

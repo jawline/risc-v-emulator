@@ -377,7 +377,8 @@ fn ecall_or_ebreak(op: &mut OpArgs) {
     }
 }
 
-fn csr_rw(op: &mut OpArgs, csr_address: usize) {
+fn csr_rw(op: &mut OpArgs) {
+    let csr_address = op.csr() as usize;
     let src = op.rs1();
     let dest = op.rd();
 
@@ -403,7 +404,7 @@ fn csr_rw(op: &mut OpArgs, csr_address: usize) {
 fn system(op: &mut OpArgs) {
     match op.funct3() {
         system::ECALL_OR_EBREAK => ecall_or_ebreak(op),
-        system::CSRRW => {}
+        system::CSRRW => csr_rw(op),
         system::CSRRS => unimplemented!(),
         system::CSRRC => unimplemented!(),
         system::CSRRWI => unimplemented!(),
