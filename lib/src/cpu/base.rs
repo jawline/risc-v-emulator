@@ -37,6 +37,7 @@ impl Cpu {
 #[cfg(test)]
 mod basic_tests {
     use super::*;
+    use crate::instruction::encoder;
 
     #[test]
     fn test_create() {
@@ -45,9 +46,9 @@ mod basic_tests {
 
     #[test]
     fn test_step() {
-        let cpu = Cpu::new();
-        let memory = Memory::new(8);
-        memory.set32(0, encoder::no_op());
+        let mut cpu = Cpu::new();
+        let mut memory = Memory::new(8);
+        memory.set32(0, encoder::no_op().encode()).unwrap();
         cpu.step(&mut memory);
         assert_eq!(cpu.state.registers.pc, 4);
     }
