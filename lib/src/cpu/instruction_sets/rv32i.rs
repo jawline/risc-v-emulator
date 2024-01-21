@@ -377,27 +377,61 @@ fn ecall_or_ebreak(op: &mut OpArgs) {
     }
 }
 
+fn write_csr_to_dest_register(op: &mut OpArgs, dest: usize, csr_address: usize) {
+    // TODO: Instret might be wrong here (off by one)
+    let initial_csr_value = match op.state.registers.csrs.get(csr_address) {
+        Ok(value) => value,
+        Err(_) => trap_illegal_csr_operation(csr_address, op, false),
+    };
+    op.state.registers.set(dest, initial_csr_value);
+}
+
 fn csr_rw(op: &mut OpArgs) {
     let csr_address = op.csr() as usize;
     let src = op.rs1();
     let dest = op.rd();
 
-    // If rd=x0, then the instruction shall not read the CSR and shall not cause any of the
-    // side-effects that might occur on a CSR read.
+    // We cache the src value before the CSR write in case it rs1 = rd
     let src_value = op.state.registers.get(src);
 
+    // If rd=x0, then the instruction shall not read the CSR and shall not cause any of the
+    // side-effects that might occur on a CSR read.
     if dest != 0 {
-        // TODO: Instret might be wrong here (off by one)
-        let initial_csr_value = match op.state.registers.csrs.get(csr_address) {
-            Ok(value) => value,
-            Err(_) => trap_illegal_csr_operation(csr_address, op, false),
-        };
-        op.state.registers.set(dest, initial_csr_value);
+        write_csr_to_dest_register(op, dest, csr_address);
     }
 
     match op.state.registers.csrs.set(csr_address, src_value) {
         Ok(()) => (),
         Err(_) => trap_illegal_csr_operation(csr_address, op, true),
+    }
+}
+
+fn csr_rs(op: &mut OpArgs) {
+    let csr_address = op.csr() as usize;
+    let src = op.rs1();
+    let dest = op.rd();
+
+    // We cache the src value before the CSR write in case it rs1 = rd
+    let src_value = op.state.registers.get(src);
+
+    // If rd=x0, then the instruction shall not read the CSR and shall not cause any of the
+    // side-effects that might occur on a CSR read.
+    if dest != 0 {
+        write_csr_to_dest_register(op, dest, csr_address);
+    }
+
+    if src != 0 {
+        let current_csr_value = match op.state.registers.csrs.get(csr_address) {
+            Ok(value) => value,
+            Err(_) => trap_illegal_csr_operation(csr_address, op, false),
+        };
+
+        let new_csr_value = current_csr_value | src_value;
+
+        match op.state.registers.csrs.set(csr_address, new_csr_value) {
+            Ok(()) => (),
+            Err(_) => trap_illegal_csr_operation(csr_address, op, true),
+        }
     }
 }
 
