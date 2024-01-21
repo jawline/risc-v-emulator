@@ -1,6 +1,6 @@
+use crate::cpu::instruction_sets::rv32i::InstructionSet;
 use crate::cpu::registers::Registers;
 use crate::memory::Memory;
-use crate::cpu::instruction_sets::rv32i::InstructionSet;
 
 #[derive(Debug)]
 pub struct CpuState<T: Default + Copy, const N: usize> {
@@ -29,8 +29,11 @@ impl Cpu {
     }
 
     pub fn step(&mut self, memory: &mut Memory) {
-        let next_instruction = memory.get32(self.state.registers.pc as usize).expect("PC out of range");
-        self.tbl.step(&mut self.state, memory, next_instruction, |_| { });
+        let next_instruction = memory
+            .get32(self.state.registers.pc as usize)
+            .expect("PC out of range");
+        self.tbl
+            .step(&mut self.state, memory, next_instruction, |_| {});
     }
 }
 
