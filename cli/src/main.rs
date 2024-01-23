@@ -1,5 +1,5 @@
 use clap::Parser;
-use riscv_lib::cpu::base::Cpu;
+use riscv_lib::cpu::rv32i::Cpu;
 use riscv_lib::memory::Memory;
 use std::fs;
 
