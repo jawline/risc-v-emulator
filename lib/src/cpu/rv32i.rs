@@ -8,6 +8,11 @@ use crate::cpu::instruction_sets::rv32i::CpuState;
 use crate::memory::Memory;
 use crate::cpu::instruction_sets::rv32i::InstructionSet;
 
+pub enum StepState {
+    Exit,
+    Continue,
+}
+
 pub struct Cpu {
     pub state: CpuState,
     tbl: InstructionSet,
@@ -21,18 +26,20 @@ impl Cpu {
         }
     }
 
-    pub fn step(&mut self, memory: &mut Memory) {
+    pub fn step(&mut self, memory: &mut Memory) -> StepState {
         let next_instruction = memory
             .get32(self.state.registers.pc as usize)
             .expect("PC out of range");
+        let mut step_state = StepState::Continue;
         self.tbl
             .step(&mut self.state, memory, next_instruction, |op| {
                 match op.state.registers.get(10) {
-                    0 => panic!("program terminated"),
+                    0 => step_state = StepState::Exit,
                     1 => print!("{}", op.state.registers.get(11) as u8 as char),
                     _ => panic!("illegal ecall"),
                 }
             });
+        step_state
     }
 }
 

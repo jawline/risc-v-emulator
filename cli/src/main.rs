@@ -1,5 +1,5 @@
 use clap::Parser;
-use riscv_lib::cpu::rv32i::Cpu;
+use riscv_lib::cpu::rv32i::{Cpu, StepState};
 use riscv_lib::memory::Memory;
 use std::fs;
 
@@ -32,7 +32,7 @@ fn main() {
     for (index, &byte) in program.iter().enumerate() {
         mem.set8(index, byte).unwrap();
     }
-    
+
     println!("Executing");
 
     let mut cpu = Cpu::new();
@@ -42,6 +42,12 @@ fn main() {
     //cpu.state.registers.pc = 0x200;
 
     loop {
-        cpu.step(&mut mem);
+        match cpu.step(&mut mem) {
+            StepState::Continue => (),
+            StepState::Exit => {
+                println!("Program exited");
+                break;
+            }
+        }
     }
 }
