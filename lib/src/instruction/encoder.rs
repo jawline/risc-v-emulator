@@ -5,20 +5,32 @@ use super::funct3::op_imm::{ADDI, ANDI, ORI, SLLI, SLTI, SLTIU, SRLI_OR_SRAI, XO
 use super::funct3::store::{SB, SH, SW};
 use super::funct3::system::{CSRRC, CSRRCI, CSRRS, CSRRSI, CSRRW, CSRRWI, ECALL_OR_EBREAK};
 use super::opcodes::{AUIPC, BRANCH, FENCE, JAL, JALR, LOAD, LUI, OP, OP_IMM, STORE, SYSTEM};
+use crate::util::Setbits;
+
+const fn check_signed_is_in_range(input: i64, max_positive_value: i64) -> Result<(), ()> {
+    if input < -max_positive_value - 1 {
+        Err(())
+    } else if input > max_positive_value {
+        Err(())
+    } else {
+        Ok(())
+    }
+}
+
+const fn checked_int_downcast(value: i64, bits: usize) -> Result<u64, ()> {
+    let max_positive_int = i64::setbits(bits - 1);
+    match check_signed_is_in_range(value, max_positive_int) {
+        Ok(()) => (),
+        Err(()) => return Err(()),
+    };
+    Ok((value as u64) & (u64::setbits(bits)))
+}
 
 const fn convert_i16_to_i12(value: i16) -> u16 {
-    let negative = value < 0;
-    let value = value as u16;
-
-    if negative & (value & 0b1111_1000_0000_0000 != 0b1111_1000_0000_0000) {
-        panic!("cannot convert a negative value to a i12 because it is out of range.")
+    match checked_int_downcast(value as i64, 12) {
+        Ok(v) => v as u16,
+        Err(()) => panic!("cannot convert a negative value to a i12 because it is out of range."),
     }
-
-    if !negative & (value & 0b1111_0000_0000_0000 != 0) {
-        panic!("cannot convert a positive value to an i12 because it is out of range");
-    }
-
-    value & 0b0000_1111_1111_1111
 }
 
 const fn i_type_opcode(
@@ -107,26 +119,17 @@ const fn encode_auipc(destination_register: usize, value: u32) -> u32 {
 }
 
 const fn encode_j_type_immediate(offset: i32) -> u32 {
-    let negative = offset < 0;
-    let value = offset as u32;
+    let value = match checked_int_downcast(offset as i64, 22) {
+        Ok(value) => value as u32,
+        Err(()) => panic!("j-type immediate is out of range"),
+    };
 
     // Negative values have all leading 1s, positive values have all leading zeros.
     if value & 0b1 != 0 {
         panic!("j-type immediate cannot have the lsb set");
     }
 
-    if negative
-        && ((value & 0b1111_1111_1110_0000_0000_0000_0000_0000u32)
-            != 0b1111_1111_1110_0000_0000_0000_0000_0000u32)
-    {
-        panic!("negative j-type immediate must have all leading 1s");
-    }
-
-    if !negative && (value & 0b1111_1111_1110_0000_0000_0000_0000_0000u32) != 0 {
-        panic!("j-type immediates must be 20 bytes and not have the lsb set");
-    }
-
-    let bit_twenty = value >> 31;
+    let bit_twenty = value >> 21;
     let bit_eleven = (value & 0b0000_0000_0100_0000_0000) >> 10;
     let bits_ten_to_one = (value & 0b111_1111_1110) >> 1;
     let bits_19_to_12 = (value & 0b0111_1111_1000_0000_0000) >> 11;
@@ -145,19 +148,13 @@ const fn encode_jal(address_offset: i32, destination_register: usize) -> u32 {
 // Encode a 13-bit signed immediate into it's B-type intstruction format.
 // The LSB must be 0 because the 13 bits are packed into 12b
 const fn encode_b_type_immediate(value: i16) -> u32 {
-    let negative = value < 0;
-    let value = value as u16;
+    let value = match checked_int_downcast(value as i64, 13) {
+        Ok(value) => value as u32,
+        Err(()) => panic!("j-type immediate is out of range"),
+    };
 
     if value & 0b1 != 0 {
         panic!("LSB of a B-type immediate must not be set");
-    }
-
-    if negative && ((value & 0b1111_0000_0000_0000) != 0b1111_0000_0000_0000) {
-        panic!("negative value lower than the minimum value for a B-type immediate");
-    }
-
-    if (!negative) && ((value & 0b1111_0000_0000_0000) != 0) {
-        panic!("positive value too large for B-type immediate");
     }
 
     // The input is 13 bits compressed into 12 (assuming v & 1 == 0)
