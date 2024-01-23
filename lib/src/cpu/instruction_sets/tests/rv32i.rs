@@ -2,11 +2,6 @@ use crate::cpu::instruction_sets::rv32i::{CpuState, InstructionSet, OpArgs};
 use crate::instruction::encoder::{self, Instruction};
 use crate::memory::Memory;
 
-#[test]
-fn create_table() {
-    let _table = InstructionSet::new();
-}
-
 struct TestEnvironment {
     state: CpuState,
     memory: Memory,
