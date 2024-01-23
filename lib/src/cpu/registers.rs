@@ -21,7 +21,6 @@ impl<T: Default + Copy, const N: usize> General<T, N> {
         self.registers[slot] = value;
 
         // We reset the register 0 to T::default() which will be zero for u32 or u64
-        // unconditionally to avoid a branch.
         self.registers[0] = T::default();
     }
 }
