@@ -2,3 +2,4 @@ lib/target
 cli/target
 *.o
 *.out
+*~
